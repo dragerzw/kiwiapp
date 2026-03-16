@@ -3,6 +3,8 @@ from app.service.alpha_vantage_client import get_company_name, get_price_data, g
 
 def test_get_company_name(monkeypatch, app):
     with app.app_context():
+        from app.cache import cache
+        cache.clear()
         import requests
         class MockResponse:
             def json(self):

@@ -51,7 +51,7 @@ def get_user(username):
 @user_bp.route('/', methods=['POST'])
 @require_auth
 def create_user():
-    req_data = UserCreateRequest(**(request.get_json(silent=True) or {}))
+    req_data = UserCreateRequest.model_validate(request.get_json(silent=True) or {})
     existing_user = user_service.get_user_by_username(req_data.username)
     if existing_user:
         error_response = ErrorResponse(error='Username already exists', code=403)
@@ -70,8 +70,8 @@ def create_user():
 @user_bp.route('/update-balance', methods=['PUT'])
 @require_auth
 def update_balance():
+    req_data = UserUpdateBalanceRequest.model_validate(request.get_json(silent=True) or {})
     try:
-        req_data = UserUpdateBalanceRequest(**(request.get_json(silent=True) or {}))
         if req_data.username != g.user['username']:
             error_response = ErrorResponse(error='Unauthorized to update this user balance', code=403)
             return jsonify(error_response.model_dump()), 403

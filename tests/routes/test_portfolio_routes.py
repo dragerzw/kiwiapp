@@ -179,3 +179,53 @@ def test_revoke_access_unauthorized(client, auth_headers, monkeypatch):
     response = client.delete(f'/portfolios/{pid}/access/user2', headers=auth_headers)
     assert response.status_code == 403
     assert 'Owner' in response.json['error']
+
+# --- New tests targeting previously uncovered branches ---
+
+def test_get_portfolio_transactions_success(client, auth_headers, db_session):
+    """Covers GET /portfolios/<id>/transactions success path."""
+    db.session.commit()
+    db.session.expire_all()
+    data = {"name": "Txn Port", "description": "Test"}
+    create_resp = client.post('/portfolios/', json=data, headers=auth_headers)
+    pid = create_resp.json['portfolio_id']
+    response = client.get(f'/portfolios/{pid}/transactions', headers=auth_headers)
+    assert response.status_code == 200
+    assert isinstance(response.json, list)
+
+def test_get_portfolio_transactions_unauthorized(client, auth_headers, monkeypatch):
+    """Covers GET /portfolios/<id>/transactions unauthorized 403."""
+    monkeypatch.setattr('app.service.portfolio_service.has_portfolio_access', lambda pid, username, roles: False)
+    response = client.get('/portfolios/1/transactions', headers=auth_headers)
+    assert response.status_code == 403
+    assert 'Unauthorized' in response.json['error']
+
+def test_get_portfolios_by_user_success(client, auth_headers, monkeypatch):
+    """Covers GET /portfolios/user/<username> success path."""
+    monkeypatch.setattr('app.routes.portfolio_routes.get_quote', lambda x: None)
+    response = client.get('/portfolios/user/admin', headers=auth_headers)
+    assert response.status_code == 200
+    assert isinstance(response.json, list)
+
+def test_get_portfolio_internal_error(monkeypatch, client, auth_headers):
+    """Covers the except path in get_portfolio."""
+    monkeypatch.setattr('app.service.portfolio_service.get_portfolio_by_id', lambda pid: (_ for _ in ()).throw(Exception('DB fail')))
+    response = client.get('/portfolios/1', headers=auth_headers)
+    assert response.status_code == 500
+    assert 'Internal server error' in response.json['error']
+
+def test_grant_access_invalid_role_422(client, auth_headers):
+    """Confirms Pydantic ValidationError returns 422 (not 500) for bad role in grant_access."""
+    data = {"name": "RoleTest Port", "description": "Test"}
+    create_resp = client.post('/portfolios/', json=data, headers=auth_headers)
+    pid = create_resp.json['portfolio_id']
+    response = client.post(f'/portfolios/{pid}/access', json={"username": "user2", "role": "SuperAdmin"}, headers=auth_headers)
+    assert response.status_code == 422
+
+def test_grant_access_extra_field_422(client, auth_headers):
+    """Confirms extra fields in grant_access body return 422 due to extra='forbid'."""
+    data = {"name": "ExtraTest Port", "description": "Test"}
+    create_resp = client.post('/portfolios/', json=data, headers=auth_headers)
+    pid = create_resp.json['portfolio_id']
+    response = client.post(f'/portfolios/{pid}/access', json={"username": "user2", "role": "Viewer", "extra": "bad"}, headers=auth_headers)
+    assert response.status_code == 422

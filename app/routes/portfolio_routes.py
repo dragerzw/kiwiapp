@@ -135,11 +135,12 @@ def get_portfolio(portfolio_id):
 @portfolio_bp.route('/<int:portfolio_id>/access', methods=['POST'])
 @require_auth
 def grant_access(portfolio_id):
+    # Validate request data first so ValidationError reaches the global 422 handler
+    req_data = AccessGrantSchema.model_validate(request.get_json(silent=True) or {})
     try:
         if not portfolio_service.has_portfolio_access(portfolio_id, g.username, ['Owner']):
             error_response = ErrorResponse(error='Only the Owner can grant access to this portfolio', code=403)
             return jsonify(error_response.model_dump()), 403
-        req_data = AccessGrantSchema.model_validate(request.get_json(silent=True) or {})
         result = portfolio_service.grant_portfolio_access(portfolio_id, req_data.username, req_data.role)
         if result is None:
             error_response = ErrorResponse(error='Invalid portfolio access grant', code=400)
