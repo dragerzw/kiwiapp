@@ -11,6 +11,9 @@ from app.schemas.error_schemas import ErrorResponse
 def create_app(config):
     app = Flask(__name__)
     app.config.from_object(config)
+    # Allow test session injection
+    if hasattr(config, 'TEST_SESSION') and config.TEST_SESSION:
+        db.session = config.TEST_SESSION
 
     @app.route("/")
     def home():
@@ -44,8 +47,8 @@ def create_app(config):
     def handle_validation_error(error: ValidationError):
         first_error = error.errors()[0]
         error_message = f"{first_error['loc'][0]}: {first_error['msg']}"
-        error_response = ErrorResponse(error=error_message, code=400)
-        return jsonify(error_response.model_dump()), 400
+        error_response = ErrorResponse(error=error_message, code=422)
+        return jsonify(error_response.model_dump()), 422
 
     @app.errorhandler(404)
     def handle_not_found(error):

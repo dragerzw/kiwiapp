@@ -15,8 +15,9 @@ class Config:
 
 class TestConfig(Config):
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = 'sqlite+pysqlite:///:memory:'
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
     SQLALCHEMY_ECHO = False
+    SQLALCHEMY_COMMIT_ON_TEARDOWN = True
     ALPHA_VANTAGE_API_KEY = 'test_key'
     COGNITO_USER_POOL_ID = 'test_pool'
     COGNITO_APP_CLIENT_ID = 'test_client'

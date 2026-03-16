@@ -8,10 +8,21 @@ from app.service import transaction_service
 
 @pytest.fixture(autouse=True)
 def setup(db_session):
+    # Clean up existing test data
+    db_session.query(Portfolio).filter(Portfolio.name == 'Test Portfolio').delete(synchronize_session=False)
+    db_session.query(User).filter(User.username == 'user').delete(synchronize_session=False)
+    db_session.commit()
+    db_session.expire_all()
+
+    # Create fresh test user
+    from app.service.user_service import create_user
     create_user(username="user", password="secret", firstname="Firstname", lastname="Lastname", balance=1000.00)
     db_session.commit()
     user = db_session.query(User).filter_by(username="user").one()
     assert user is not None
+
+    # Create fresh portfolio
+    from app.service.portfolio_service import create_portfolio
     create_portfolio("Test Portfolio", "Test Portfolio Description", user)
     db_session.commit()
     portfolio = db_session.query(Portfolio).filter_by(name="Test Portfolio").one()

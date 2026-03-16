@@ -16,6 +16,8 @@ def test_get_company_name(monkeypatch, app):
 
 def test_get_price_data(monkeypatch, app):
     with app.app_context():
+        from app.cache import cache
+        cache.clear()
         import requests
         class MockResponse:
             def json(self):
@@ -31,6 +33,8 @@ def test_get_price_data(monkeypatch, app):
 
 def test_get_quote(monkeypatch, app):
     with app.app_context():
+        from app.cache import cache
+        cache.clear()
         import requests
         class MockResponse:
             def json(self):

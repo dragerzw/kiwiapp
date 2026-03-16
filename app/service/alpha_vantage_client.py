@@ -15,12 +15,15 @@ class SecurityQuote:
 class AlphaVantageError(Exception):
     pass
 
-@cache.memoize(timeout=300)
-def get_company_name(ticker: str) -> Optional[str]:
+def _get_api_key() -> str:
     api_key = current_app.config.get("ALPHA_VANTAGE_API_KEY")
     if not api_key:
         raise AlphaVantageError("ALPHA_VANTAGE_API_KEY is not configured")
-    
+    return api_key
+
+@cache.memoize(timeout=300)
+def get_company_name(ticker: str) -> Optional[str]:
+    api_key = _get_api_key()
     url = f"https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords={ticker}&apikey={api_key}"
     try:
         response = requests.get(url, timeout=10)
@@ -41,10 +44,7 @@ def get_company_name(ticker: str) -> Optional[str]:
 
 @cache.memoize(timeout=300)
 def get_price_data(ticker: str) -> Optional[dict]:
-    api_key = current_app.config.get("ALPHA_VANTAGE_API_KEY")
-    if not api_key:
-        raise AlphaVantageError("ALPHA_VANTAGE_API_KEY is not configured")
-        
+    api_key = _get_api_key()
     url = f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={ticker}&apikey={api_key}"
     try:
         response = requests.get(url, timeout=10)

@@ -48,19 +48,25 @@ class Portfolio(db.Model):
         return f'<Portfolio: id={self.id}; name={self.name}; description={self.description}; user={username}; investments={", ".join(investments)}>'
 
     def __to_dict__(self):
-        investments = []
-        for investment in self.investments:
-            investments.append(
-                {
-                    'ticker': investment.ticker,
-                    'quantity': investment.quantity,
-                }
-            )
-        return {
-            'id': self.id,
-            'name': self.name,
-            'description': self.description,
-            'owner': self.owner,
-            'investments_count': len(self.investments),
-            'investments': investments,
-        }
+        try:
+            investments = []
+            for investment in self.investments or []:
+                investments.append(
+                    {
+                        'ticker': getattr(investment, 'ticker', None),
+                        'quantity': getattr(investment, 'quantity', None),
+                    }
+                )
+            result = {
+                'id': self.id,
+                'name': self.name,
+                'description': self.description,
+                'owner': self.owner,
+                'investments_count': len(self.investments or []),
+                'investments': investments,
+            }
+            print('DEBUG: Portfolio.__to_dict__ result =', result)
+            return result
+        except Exception as ex:
+            print('ERROR: Portfolio.__to_dict__ failed:', ex)
+            return {'id': self.id, 'error': str(ex)}

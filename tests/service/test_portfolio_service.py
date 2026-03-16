@@ -5,16 +5,31 @@ from app.models import Investment, Portfolio, User, PortfolioAccess
 
 @pytest.fixture(autouse=True)
 def setup(db_session):
+    # Clean up existing test data
+    db_session.query(PortfolioAccess).filter(PortfolioAccess.username == 'testuser').delete(synchronize_session=False)
+    db_session.query(Investment).filter(Investment.ticker == 'AAPL').delete(synchronize_session=False)
+    db_session.query(Portfolio).filter(Portfolio.name.in_(["Portfolio 1", "Portfolio 2"])).delete(synchronize_session=False)
+    db_session.query(User).filter(User.username == 'testuser').delete(synchronize_session=False)
+    db_session.commit()
+    db_session.expire_all()
+
+    # Create fresh test user
     user = User(username="testuser", password="testpass", firstname="Test", lastname="User", balance=1000.0)
     db_session.add(user)
     db_session.commit()
+
+    # Create fresh portfolios
     portfolio1 = Portfolio(name="Portfolio 1", description="First portfolio", user=user)
     portfolio2 = Portfolio(name="Portfolio 2", description="Second portfolio", user=user)
     db_session.add_all([portfolio1, portfolio2])
     db_session.commit()
+
+    # Create fresh accesses
     acc1 = PortfolioAccess(username=user.username, role='Owner', portfolio_id=portfolio1.id)
     acc2 = PortfolioAccess(username=user.username, role='Owner', portfolio_id=portfolio2.id)
     db_session.add_all([acc1, acc2])
+
+    # Add investment
     portfolio1.investments.append(Investment(ticker="AAPL", quantity=10))
     db_session.commit()
     return {

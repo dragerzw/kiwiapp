@@ -4,7 +4,7 @@ import app.service.security_service as security_service
 import app.service.transaction_service as transaction_service
 
 from dataclasses import asdict
-from app.auth import require_auth
+from app.auth.auth import require_auth
 from app.service.security_service import SecurityNotFoundException, SecurityFetchException
 from app.schemas.error_schemas import ErrorResponse
 

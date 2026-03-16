@@ -5,34 +5,42 @@ from app.service import transaction_service
 
 @pytest.fixture(autouse=True)
 def setup(db_session):
-    # create a test user
+    # Clean up existing test data with cascade delete
+    db_session.query(Transaction).filter(Transaction.username == 'testuser').delete(synchronize_session=False)
+    db_session.query(Portfolio).filter(Portfolio.name == 'Test Portfolio').delete(synchronize_session=False)
+    db_session.query(User).filter(User.username == 'testuser').delete(synchronize_session=False)
+    db_session.commit()
+    db_session.expire_all()
+
+    # Create fresh test user
     test_user = User(username='testuser', password='testpass', firstname='Test', lastname='User', balance=1000.00)
     db_session.add(test_user)
     db_session.commit()
-    # create a test portfolio
+
+    # Create fresh test portfolio
     test_portfolio = Portfolio(name='Test Portfolio', description='A portfolio for testing', user=test_user)
     db_session.add(test_portfolio)
     db_session.commit()
-    transactions = [
-        Transaction(
-            portfolio_id=test_portfolio.id,
-            username=test_user.username,
-            ticker='AAPL',
-            quantity=10,
-            price=150.00,
-            transaction_type="BUY",
-            date_time=datetime.datetime.now())
-        ,
-        Transaction(
-            portfolio_id=test_portfolio.id,
-            username=test_user.username,
-            ticker='GOOGL',
-            quantity=10,
-            price=250.00,
-            transaction_type="BUY",
-            date_time=datetime.datetime.now())
-    ]
-    db_session.add_all(transactions)
+
+    # Create fresh transactions
+    tx_aapl = Transaction(
+        portfolio_id=test_portfolio.id,
+        username=test_user.username,
+        ticker='AAPL',
+        quantity=10,
+        price=150.00,
+        transaction_type="BUY",
+        date_time=datetime.datetime.now())
+    db_session.add(tx_aapl)
+    tx_googl = Transaction(
+        portfolio_id=test_portfolio.id,
+        username=test_user.username,
+        ticker='GOOGL',
+        quantity=10,
+        price=250.00,
+        transaction_type="BUY",
+        date_time=datetime.datetime.now())
+    db_session.add(tx_googl)
     db_session.commit()
     yield {
         'user': test_user,

@@ -14,7 +14,7 @@ class PortfolioOperationError(Exception):
 
 def create_portfolio(name: str, description: str, user: User) -> Portfolio:
     if not name or not description or not user:
-        return None
+        raise UnsupportedPortfolioOperationError('Invalid portfolio input')
     portfolio = Portfolio(name=name, description=description, user=user, owner=user.username)
     db.session.add(portfolio)
     db.session.flush()  # Ensure portfolio.id is generated
@@ -41,7 +41,7 @@ def get_portfolio_by_id(portfolio_id: int) -> Portfolio | None:
 def delete_portfolio(portfolio_id: int):
     portfolio = db.session.query(Portfolio).filter_by(id=portfolio_id).one_or_none()
     if not portfolio:
-        return None
+        raise PortfolioOperationError(f'Portfolio {portfolio_id} not found')
     db.session.delete(portfolio)
 
 def grant_portfolio_access(portfolio_id: int, username: str, role: str):
@@ -56,9 +56,11 @@ def grant_portfolio_access(portfolio_id: int, username: str, role: str):
     access = db.session.query(PortfolioAccess).filter_by(portfolio_id=portfolio_id, username=username).one_or_none()
     if access:
         access.role = role
+        return access
     else:
         new_access = PortfolioAccess(username=username, portfolio_id=portfolio_id, role=role)
         db.session.add(new_access)
+        return new_access
 
 def revoke_portfolio_access(portfolio_id: int, username: str):
     access = db.session.query(PortfolioAccess).filter_by(portfolio_id=portfolio_id, username=username).one_or_none()

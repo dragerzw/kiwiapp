@@ -1,10 +1,11 @@
 from flask import Blueprint, jsonify, request, g
 
 from app.db import db
-from app.schemas.trade_schemas import TradeBuyRequest, TradeSellRequest
+from app.schemas.request_schemas import TradeSchema
 from app.service import trade_service
 from app.service.portfolio_service import has_portfolio_access
-from app.auth import require_auth
+from app.service.alpha_vantage_client import get_quote
+from app.auth.auth import require_auth
 from app.schemas.error_schemas import ErrorResponse
 
 trade_bp = Blueprint('trade', __name__)
@@ -13,7 +14,7 @@ trade_bp = Blueprint('trade', __name__)
 @trade_bp.route('/buy', methods=['POST'])
 @require_auth
 def buy_trade():
-    req_data = TradeBuyRequest(**(request.get_json(silent=True) or {}))
+    req_data = TradeSchema.model_validate(request.get_json(silent=True) or {})
     if not has_portfolio_access(req_data.portfolio_id, g.username, ['Owner', 'Manager']):
         error_response = ErrorResponse(error='Unauthorized to trade on this portfolio', code=403)
         return jsonify(error_response.model_dump()), 403
@@ -29,7 +30,7 @@ def buy_trade():
 @trade_bp.route('/sell', methods=['POST'])
 @require_auth
 def sell_trade():
-    req_data = TradeSellRequest(**(request.get_json(silent=True) or {}))
+    req_data = TradeSchema.model_validate(request.get_json(silent=True) or {})
     if not has_portfolio_access(req_data.portfolio_id, g.username, ['Owner', 'Manager']):
         error_response = ErrorResponse(error='Unauthorized to trade on this portfolio', code=403)
         return jsonify(error_response.model_dump()), 403
@@ -37,7 +38,7 @@ def sell_trade():
         portfolio_id=req_data.portfolio_id,
         ticker=req_data.ticker,
         quantity=req_data.quantity,
-        sale_price=req_data.sale_price,
+        sale_price=get_quote(req_data.ticker).price if get_quote(req_data.ticker) else 0.0,
     )
     db.session.commit()
     return jsonify({'message': 'Investment liquidated successfully'}), 200

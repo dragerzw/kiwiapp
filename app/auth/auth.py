@@ -46,25 +46,22 @@ class CognitoTokenValidator:
             return None
 
     def validate_token(self, token: str) -> Dict:
-
-        # Get the signing key
         signing_key = self._get_signing_key(token)
         if not signing_key:
             raise Exception('Unable to find matching signing key')
 
         try:
-            # Decode and validate the token
             claims = jwt.decode(
                 token,
                 signing_key,
                 algorithms=['RS256'],
-                audience=self.app_client_id,  # Validates the token was issued for this app
-                issuer=self.issuer,  # Validates the token came from this user pool
+                audience=self.app_client_id,
+                issuer=self.issuer,
                 options={
                     'verify_signature': True,
-                    'verify_exp': True,  # Verify expiration
-                    'verify_aud': True,  # Verify audience
-                    'verify_iss': True,  # Verify issuer
+                    'verify_exp': True,
+                    'verify_aud': True,
+                    'verify_iss': True,
                 }
             )
             return claims
@@ -88,29 +85,26 @@ def get_token_from_header():
 
     return parts[1]
 
-def requires_auth(f):
+def require_auth(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         token = get_token_from_header()
         if not token:
-            return jsonify(
-                ErrorResponse(error_message='Missing authentication Token', request_id='').model_dump()
-            ), 401
-        # Retrieve the validator instance from the Flask app config
-        validator = current_app.config.get('COGNITO_VALIDATOR')  # TODO: Add cognito validator to the app config
+            from app.schemas.error_schemas import ErrorResponse
+            return jsonify(ErrorResponse(error="Missing authentication Token", code=403).model_dump()), 403
+            
+        validator = current_app.config.get('COGNITO_VALIDATOR')
         if not validator:
-            return jsonify(
-                ErrorResponse(
-                    error_message='Missing cognito token validator in the app configuration.', request_id=''
-                ).model_dump()
-            ), 500
+            from app.schemas.error_schemas import ErrorResponse
+            return jsonify(ErrorResponse(error="Missing cognito token validator in the app configuration.", code=500).model_dump()), 500
+            
         try:
-            # Validate token and store claims in Flask's global request context
             claims = validator.validate_token(token)
             g.user = {'user_id': claims.get('sub'), 'username': claims.get('username'), 'claims': claims}
+            g.username = claims.get('username')
         except Exception as e:
-            return jsonify(
-                ErrorResponse(error_message='Token validation failed', request_id='').model_dump()
-            ), 401
+            from app.schemas.error_schemas import ErrorResponse
+            return jsonify(ErrorResponse(error="Token validation failed: " + str(e), code=403).model_dump()), 403
+            
         return f(*args, **kwargs)
     return decorated_function

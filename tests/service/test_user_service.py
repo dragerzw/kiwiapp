@@ -12,6 +12,9 @@ def test_get_all_users_exception(db_session, monkeypatch):
     assert "Database error" in str(e.value)
 
 def test_create_user(db_session):
+    # Clean up test user
+    db_session.query(User).filter(User.username == 'test_user75').delete(synchronize_session=False)
+    db_session.commit()
     users_before = user_service.get_all_users()
     initial_count = len(users_before)
     user_service.create_user('test_user75', 'xxx', 'Test', 'User', 100.00)
@@ -38,6 +41,9 @@ def test_create_user_duplicate_username_raises(db_session):
         db_session.flush()
 
 def test_delete_user(db_session):
+    # Clean up test user
+    db_session.query(User).filter(User.username == 'test_user77').delete(synchronize_session=False)
+    db_session.commit()
     users = user_service.get_all_users()
     initial_count = len(users)
     user_service.create_user('test_user77', 'xxx', 'Test', 'User', 150.00)
