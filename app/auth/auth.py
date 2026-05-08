@@ -91,7 +91,7 @@ def require_auth(f):
         token = get_token_from_header()
         if not token:
             from app.schemas.error_schemas import ErrorResponse
-            return jsonify(ErrorResponse(error="Missing authentication Token", code=401).model_dump()), 401
+            return jsonify(ErrorResponse(error="Missing authentication Token", code=403).model_dump()), 403
             
         validator = current_app.config.get('COGNITO_VALIDATOR')
         if not validator:
@@ -104,7 +104,7 @@ def require_auth(f):
             g.username = claims.get('username')
         except Exception as e:
             from app.schemas.error_schemas import ErrorResponse
-            return jsonify(ErrorResponse(error="Token validation failed: " + str(e), code=401).model_dump()), 401
+            return jsonify(ErrorResponse(error="Token validation failed: " + str(e), code=403).model_dump()), 403
             
         return f(*args, **kwargs)
     return decorated_function
