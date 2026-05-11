@@ -5,7 +5,7 @@ from app.schemas.request_schemas import TradeSchema
 from app.service import trade_service
 from app.service.trade_service import TradeExecutionException
 from app.service.portfolio_service import has_portfolio_access
-from app.service.alpha_vantage_client import get_quote
+from app.service.alpha_vantage_client import AlphaVantageError, get_price_data
 from app.auth.auth import require_auth
 from app.schemas.error_schemas import ErrorResponse
 
@@ -35,14 +35,17 @@ def sell_trade():
     if not has_portfolio_access(req_data.portfolio_id, g.username, ['Owner', 'Manager']):
         error_response = ErrorResponse(error='Unauthorized to trade on this portfolio', code=403)
         return jsonify(error_response.model_dump()), 403
-    quote = get_quote(req_data.ticker)
-    if not quote:
+    try:
+        price_data = get_price_data(req_data.ticker)
+    except AlphaVantageError as e:
+        raise TradeExecutionException(str(e)) from e
+    if not price_data:
         raise TradeExecutionException(f'Could not fetch price for {req_data.ticker}')
     trade_service.liquidate_investment(
         portfolio_id=req_data.portfolio_id,
         ticker=req_data.ticker,
         quantity=req_data.quantity,
-        sale_price=quote.price,
+        sale_price=price_data['price'],
     )
     db.session.commit()
     return jsonify({'message': 'Investment liquidated successfully'}), 200

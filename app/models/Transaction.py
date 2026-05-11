@@ -53,13 +53,17 @@ class Transaction(db.Model):
         )
 
     def __to_dict__(self):
+        total_value = self.price * self.quantity
         return {
+            'id': self.transaction_id,
             'transaction_id': self.transaction_id,
             'username': self.username,
             'portfolio_id': self.portfolio_id,
+            'type': self.transaction_type,
             'ticker': self.ticker,
             'transaction_type': self.transaction_type,
             'quantity': self.quantity,
             'price': self.price,
+            'total_value': total_value,
             'date_time': self.date_time.isoformat(),
         }

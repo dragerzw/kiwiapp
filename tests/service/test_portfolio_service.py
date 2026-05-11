@@ -94,8 +94,14 @@ def test_create_portfolio_invalid_input():
     user = User(username="testuser", password="testpass", firstname="Test", lastname="User", balance=1000.0)
     with pytest.raises(portfolio_service.UnsupportedPortfolioOperationError):
         portfolio_service.create_portfolio("", "A test portfolio", user)
-    with pytest.raises(portfolio_service.UnsupportedPortfolioOperationError):
-        portfolio_service.create_portfolio("Test Portfolio", "", user)
+
+def test_create_portfolio_allows_optional_description(setup, db_session):
+    user = setup["user"]
+
+    portfolio = portfolio_service.create_portfolio("Test Portfolio", "", user)
+    db_session.flush()
+
+    assert portfolio.description is None
 
 def test_create_portfolio_db_failure(monkeypatch):
     def failing_get_session(*args, **kwargs):

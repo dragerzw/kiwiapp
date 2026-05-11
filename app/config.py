@@ -2,6 +2,8 @@ import os
 
 from dotenv import load_dotenv
 
+os.environ['NO_PROXY'] = '*'
+
 load_dotenv()
 
 

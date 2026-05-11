@@ -1,4 +1,5 @@
 from flask import Flask, jsonify
+from flask_cors import CORS
 from pydantic import ValidationError
 from werkzeug.exceptions import HTTPException
 
@@ -10,10 +11,8 @@ from app.schemas.error_schemas import ErrorResponse
 
 def create_app(config):
     app = Flask(__name__)
+    CORS(app)
     app.config.from_object(config)
-    # Allow test session injection
-    if hasattr(config, 'TEST_SESSION') and config.TEST_SESSION:
-        db.session = config.TEST_SESSION
 
     @app.route("/")
     def home():
@@ -22,6 +21,20 @@ def create_app(config):
     # register extensions
     db.init_app(app)
     cache.init_app(app)
+    # Ensure all tables exist
+    with app.app_context():
+        db.create_all()
+        # Seed a default user for development if it does not exist
+        from app.service import user_service
+        if not user_service.get_user_by_username('drager'):
+            user_service.create_user(
+                username='drager',
+                password='password123',
+                firstname='Drager',
+                lastname='User',
+                balance=1000.0,
+            )
+            db.session.commit()
 
     # Cognito validator setup
     from app.auth.auth import CognitoTokenValidator

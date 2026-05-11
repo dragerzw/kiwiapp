@@ -1,0 +1,195 @@
+.dashboard-container {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  background: #ffffff;
+}
+
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 1.5rem;
+  margin-top: 0;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 1rem;
+}
+
+.tab-nav {
+  display: flex;
+  gap: 2rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.tab-link {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  position: relative;
+  transition: color 0.2s;
+}
+
+.tab-link:hover {
+  color: #0f172a;
+}
+
+.tab-link.active {
+  color: #3b82f6;
+}
+
+.tab-link.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1rem;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: #3b82f6;
+}
+
+.tab-link:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.portfolio-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.portfolio-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+  overflow: hidden;
+  appearance: none;
+}
+
+.portfolio-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+}
+
+.portfolio-card-surface {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+
+.portfolio-card-body {
+  padding: 1.5rem;
+  flex: 1;
+}
+
+.portfolio-card-body h4 {
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.portfolio-card-body p {
+  color: #475569;
+  font-size: 0.9rem;
+  margin: 0 0 1rem;
+}
+
+.portfolio-card-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-top: 0.5rem;
+}
+
+.portfolio-card-meta {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.portfolio-card-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.portfolio-card-role {
+  color: #475569;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.portfolio-card-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.holdings-view, .trade-view, .transactions-view {
+  min-height: 400px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 2rem;
+}
+
+.transaction-list-full {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.loading {
+  text-align: center;
+  padding: 5rem;
+  font-size: 1.2rem;
+  color: #64748b;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: #475569;
+  font-size: 1rem;
+}
+
+.portfolio-card:focus-visible {
+  outline: 3px solid rgba(59, 130, 246, 0.3);
+  outline-offset: 2px;
+}

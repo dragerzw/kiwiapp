@@ -43,8 +43,9 @@ def test_expired_token(client, app, monkeypatch):
     monkeypatch.setattr('app.auth.auth.jwt.get_unverified_header', lambda x: {"kid": "key1"})
     monkeypatch.setattr('app.auth.auth.CognitoTokenValidator._get_jwks', lambda self: {"keys": [{"kid": "key1", "kty": "RSA", "alg": "RS256"}]})
     
+    from jose.exceptions import ExpiredSignatureError
     def mock_decode_expired(*args, **kwargs):
-        raise jwt.ExpiredSignatureError("Expired")
+        raise ExpiredSignatureError("Expired")
     monkeypatch.setattr('app.auth.auth.jwt.decode', mock_decode_expired)
     
     response = client.get('/test_protected', headers={"Authorization": "Bearer validtoken"})

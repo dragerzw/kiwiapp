@@ -1,5 +1,8 @@
 
 from flask import Blueprint, jsonify, request, g
+import logging
+
+logger = logging.getLogger(__name__)
 
 import app.service.portfolio_service as portfolio_service
 import app.service.transaction_service as transaction_service
@@ -7,27 +10,55 @@ import app.service.user_service as user_service
 from app.db import db
 from app.schemas.request_schemas import PortfolioCreateSchema, AccessGrantSchema
 from app.schemas.error_schemas import ErrorResponse
-from app.service.alpha_vantage_client import get_quote
+from app.service.alpha_vantage_client import AlphaVantageError, get_price_data
 from app.auth.auth import require_auth
 
 portfolio_bp = Blueprint('portfolio', __name__)
+INTERNAL_SERVER_ERROR_MESSAGE = 'Internal server error'
+
+
+def _should_include_quotes() -> bool:
+    include_quotes = request.args.get('include_quotes', '').strip().lower()
+    return include_quotes in {'1', 'true', 'yes', 'on'}
+
+
+def _serialize_portfolio(portfolio, include_quotes: bool = False) -> dict:
+    portfolio_dict = portfolio.__to_dict__()
+    portfolio_dict['access_role'] = portfolio_service.get_portfolio_role(portfolio, g.username)
+    if include_quotes:
+        portfolio_dict = _enrich_portfolio(portfolio_dict)
+    return portfolio_dict
+
 
 def _enrich_portfolio(portfolio_dict: dict) -> dict:
     total_value = 0.0
+    quote_error = None
     for inv in portfolio_dict.get('investments', []):
+        fallback_price = inv.get('estimated_price')
+        fallback_total_value = inv.get('estimated_total_value')
         try:
-            quote = get_quote(inv['ticker'])
+            price_data = get_price_data(inv['ticker'])
+        except AlphaVantageError as exc:
+            logger.warning('Unable to load live quote for %s: %s', inv.get('ticker'), exc)
+            quote_error = quote_error or str(exc)
+            price_data = None
         except Exception:
-            quote = None
-        if quote:
-            inv['current_price'] = quote.price
-            inv['total_value'] = quote.price * inv['quantity']
-            total_value += inv['total_value']
+            logger.exception('Unexpected quote lookup failure for %s', inv.get('ticker'))
+            quote_error = quote_error or 'Live quotes are currently unavailable.'
+            price_data = None
+        if price_data:
+            inv['current_price'] = price_data['price']
+            inv['total_value'] = price_data['price'] * inv['quantity']
         else:
-            inv['current_price'] = None
-            inv['total_value'] = None
+            inv['current_price'] = fallback_price
+            inv['total_value'] = fallback_total_value
+
+        if isinstance(inv.get('total_value'), (int, float)):
+            total_value += inv['total_value']
     
     portfolio_dict['total_portfolio_value'] = total_value
+    if quote_error:
+        portfolio_dict['quote_error'] = quote_error
     return portfolio_dict
 
 @portfolio_bp.route('/', methods=['GET'])
@@ -38,20 +69,18 @@ def get_all_portfolios():
         error_response = ErrorResponse(error=f'User {g.username} not found', code=403)
         return jsonify(error_response.model_dump()), 403
     try:
+        include_quotes = _should_include_quotes()
         portfolios = portfolio_service.get_portfolios_by_user(user)
         result = []
         for p in portfolios:
             try:
-                portfolio_dict = p.__to_dict__()
-                result.append(_enrich_portfolio(portfolio_dict))
+                result.append(_serialize_portfolio(p, include_quotes=include_quotes))
             except Exception as ex:
-                print('ERROR: Failed to serialize portfolio:', ex)
+                logger.error('Failed to serialize portfolio: %s', ex)
         return jsonify(result), 200
     except Exception as e:
-        import traceback
-        print('Error in get_all_portfolios:', e)
-        traceback.print_exc()
-        error_response = ErrorResponse(error='Internal server error', code=500)
+        logger.exception('Error in get_all_portfolios: %s', e)
+        error_response = ErrorResponse(error=INTERNAL_SERVER_ERROR_MESSAGE, code=500)
         return jsonify(error_response.model_dump()), 500
 
 
@@ -66,8 +95,12 @@ def get_portfolios_by_user(username):
         if g.username != username:
             error_response = ErrorResponse(error='Unauthorized to view these portfolios', code=403)
             return jsonify(error_response.model_dump()), 403
+        include_quotes = _should_include_quotes()
         portfolios = portfolio_service.get_portfolios_by_user(user)
-        return jsonify([_enrich_portfolio(p.__to_dict__()) for p in portfolios]), 200
+        result = []
+        for portfolio in portfolios:
+            result.append(_serialize_portfolio(portfolio, include_quotes=include_quotes))
+        return jsonify(result), 200
     except Exception as e:
         msg = str(e)
         if 'Unauthorized' in msg:
@@ -106,7 +139,7 @@ def create_portfolio():
 @portfolio_bp.route('/<int:portfolio_id>/transactions', methods=['GET'])
 @require_auth
 def get_portfolio_transactions(portfolio_id):
-    if not portfolio_service.has_portfolio_access(portfolio_id, g.user['username'], ['Owner', 'Manager', 'Viewer']):
+    if not portfolio_service.has_portfolio_access(portfolio_id, g.username, ['Owner', 'Manager', 'Viewer']):
         error_response = ErrorResponse(error='Unauthorized to view this portfolio info', code=403)
         return jsonify(error_response.model_dump()), 403
     transactions = transaction_service.get_transactions_by_portfolio_id(portfolio_id)
@@ -121,15 +154,13 @@ def get_portfolio(portfolio_id):
             error_response = ErrorResponse(error=f'Portfolio {portfolio_id} not found', code=404)
             return jsonify(error_response.model_dump()), 404
         # Authorization check
-        if not portfolio_service.has_portfolio_access(portfolio_id, g.user['username'], ['Owner', 'Manager', 'Viewer']):
+        if not portfolio_service.has_portfolio_access(portfolio_id, g.username, ['Owner', 'Manager', 'Viewer']):
             error_response = ErrorResponse(error='Unauthorized to view this portfolio info', code=403)
             return jsonify(error_response.model_dump()), 403
-        return jsonify(_enrich_portfolio(portfolio.__to_dict__())), 200
+        return jsonify(_serialize_portfolio(portfolio, include_quotes=True)), 200
     except Exception as e:
-        import traceback
-        print('Error in get_portfolio:', e)
-        traceback.print_exc()
-        error_response = ErrorResponse(error='Internal server error', code=500)
+        logger.exception('Error in get_portfolio: %s', e)
+        error_response = ErrorResponse(error=INTERNAL_SERVER_ERROR_MESSAGE, code=500)
         return jsonify(error_response.model_dump()), 500
 
 @portfolio_bp.route('/<int:portfolio_id>/access', methods=['POST'])
@@ -148,40 +179,39 @@ def grant_access(portfolio_id):
         db.session.commit()
         return jsonify({'message': 'Portfolio access granted successfully'}), 200
     except Exception as e:
-        import traceback
-        print('Error in grant_access:', e)
-        traceback.print_exc()
-        error_response = ErrorResponse(error='Internal server error', code=500)
+        logger.exception('Error in grant_access: %s', e)
+        error_response = ErrorResponse(error=INTERNAL_SERVER_ERROR_MESSAGE, code=500)
         return jsonify(error_response.model_dump()), 500
 
 @portfolio_bp.route('/<int:portfolio_id>', methods=['DELETE'])
 @require_auth
 def delete_portfolio(portfolio_id):
     try:
-        print('DEBUG: delete_portfolio called for id:', portfolio_id)
-        if not portfolio_service.has_portfolio_access(portfolio_id, g.user['username'], ['Owner']):
-            print('DEBUG: No access for user:', g.user['username'])
+        logger.debug('delete_portfolio called for id: %s', portfolio_id)
+        if not portfolio_service.has_portfolio_access(portfolio_id, g.username, ['Owner']):
+            logger.debug('No access for user: %s', g.username)
             error_response = ErrorResponse(error='Only the Owner can delete this portfolio', code=403)
             return jsonify(error_response.model_dump()), 403
-        result = portfolio_service.delete_portfolio(portfolio_id)
-        if result is None:
-            error_response = ErrorResponse(error=f'Portfolio {portfolio_id} not found', code=404)
-            print('DEBUG: Portfolio not found for delete:', portfolio_id)
-            return jsonify(error_response.model_dump()), 404
+        portfolio_service.delete_portfolio(portfolio_id)
         db.session.commit()
-        print('DEBUG: Portfolio deleted and committed:', portfolio_id)
+        logger.debug('Portfolio deleted and committed: %s', portfolio_id)
         return jsonify({'message': 'Portfolio deleted successfully'}), 200
+    except portfolio_service.UnsupportedPortfolioOperationError as e:
+        error_response = ErrorResponse(error=str(e), code=400)
+        return jsonify(error_response.model_dump()), 400
+    except portfolio_service.PortfolioOperationError as e:
+        logger.debug('Portfolio not found for delete: %s', portfolio_id)
+        error_response = ErrorResponse(error=str(e), code=404)
+        return jsonify(error_response.model_dump()), 404
     except Exception as e:
-        import traceback
-        print('Error in delete_portfolio:', e)
-        traceback.print_exc()
+        logger.exception('Error in delete_portfolio: %s', e)
         error_response = ErrorResponse(error='Internal server error', code=500)
         return jsonify(error_response.model_dump()), 500
 
 @portfolio_bp.route('/<int:portfolio_id>/access/<username>', methods=['DELETE'])
 @require_auth
 def revoke_access(portfolio_id, username):
-    if not portfolio_service.has_portfolio_access(portfolio_id, g.user['username'], ['Owner']):
+    if not portfolio_service.has_portfolio_access(portfolio_id, g.username, ['Owner']):
         error_response = ErrorResponse(error='Only the Owner can revoke access to this portfolio', code=403)
         return jsonify(error_response.model_dump()), 403
     portfolio_service.revoke_portfolio_access(portfolio_id, username)

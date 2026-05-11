@@ -1,8 +1,9 @@
 import pytest
+from pytest import approx
 from app.models import User, Portfolio
 from app.service.portfolio_service import create_portfolio
 from app.service.trade_service import InsufficientFundsError, execute_purchase_order, TradeExecutionException, liquidate_investment
-from app.service.alpha_vantage_client import SecurityQuote
+from app.service.alpha_vantage_client import AlphaVantageError
 from app.service.user_service import create_user
 from app.service import transaction_service
 
@@ -16,7 +17,7 @@ def setup(db_session):
 
     # Create fresh test user
     from app.service.user_service import create_user
-    create_user(username="user", password="secret", firstname="Firstname", lastname="Lastname", balance=1000.00)
+    create_user("user", "secret", "Firstname", "Lastname", 1000.00)
     db_session.commit()
     user = db_session.query(User).filter_by(username="user").one()
     assert user is not None
@@ -34,25 +35,25 @@ def setup(db_session):
 
 @pytest.fixture(autouse=True)
 def mock_alpha_vantage(monkeypatch):
-    def mock_get_quote(ticker):
+    def mock_get_price_data(ticker):
         if ticker == "AAPL":
-            return SecurityQuote(ticker="AAPL", date="2023-11-20", price=150.0, issuer="Apple Inc.")
+            return {"price": 150.0, "date": "2023-11-20"}
         if ticker == "GOOGL":
-            return SecurityQuote(ticker="GOOGL", date="2023-11-20", price=2800.0, issuer="Alphabet Inc.")
+            return {"price": 2800.0, "date": "2023-11-20"}
         return None
     
-    monkeypatch.setattr("app.service.trade_service.get_quote", mock_get_quote)
+    monkeypatch.setattr("app.service.trade_service.get_price_data", mock_get_price_data)
 
 def test_execute_purchase_order(setup, db_session):
     portfolio = setup["portfolio"]
     transactions = transaction_service.get_transactions_by_portfolio_id(portfolio.id)
     assert len(transactions) == 0
     user = db_session.query(User).filter_by(username="user").one()
-    assert user.balance == 1000.00
+    assert user.balance == approx(1000.00)
     execute_purchase_order(portfolio.id, "AAPL", 2)
     db_session.commit()
     user = db_session.query(User).filter_by(username="user").one()
-    assert user.balance == 700.00
+    assert user.balance == approx(700.00)
     user_portfolio = user.portfolios[0]
     assert user_portfolio.investments is not None
     investments = user_portfolio.investments
@@ -64,7 +65,7 @@ def test_execute_purchase_order(setup, db_session):
     assert len(transactions) == 1
     assert transactions[0].ticker == "AAPL"
     assert transactions[0].quantity == 2
-    assert transactions[0].price == 150.00
+    assert transactions[0].price == approx(150.00)
     assert transactions[0].transaction_type == "BUY"
 
 def test_execute_purchase_order_insufficient_funds(setup, db_session):
@@ -83,6 +84,18 @@ def test_execute_order_for_nonexistent_security(setup, db_session):
     with pytest.raises(TradeExecutionException) as e:
         execute_purchase_order(portfolio.id, "INVALID", 1)
     assert "Security with ticker INVALID could not be found via Alpha Vantage." in str(e.value)
+
+def test_execute_order_propagates_alpha_vantage_error(setup, db_session, monkeypatch):
+    portfolio = setup["portfolio"]
+    monkeypatch.setattr(
+        "app.service.trade_service.get_price_data",
+        lambda _ticker: (_ for _ in ()).throw(
+            AlphaVantageError("Alpha Vantage rate limit reached. Slow down.")
+        ),
+    )
+    with pytest.raises(TradeExecutionException) as e:
+        execute_purchase_order(portfolio.id, "IBM", 1)
+    assert "Alpha Vantage rate limit reached" in str(e.value)
 
 def test_liquidate_investment(setup, db_session):
     portfolio = setup["portfolio"]

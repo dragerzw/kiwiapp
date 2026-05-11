@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from app.service.alpha_vantage_client import get_quote, SecurityQuote
+from app.service.alpha_vantage_client import AlphaVantageError, get_quote, SecurityQuote
 
 class SecurityException(Exception):
     pass
@@ -19,6 +19,8 @@ def get_all_securities() -> List[SecurityQuote]:
 def get_security_by_ticker(ticker: str) -> Optional[SecurityQuote]:
     try:
         quote = get_quote(ticker)
+    except AlphaVantageError as e:
+        raise SecurityFetchException(str(e)) from e
     except Exception as e:
         raise SecurityFetchException(f"Failed to fetch security data for {ticker}: {str(e)}") from e
         

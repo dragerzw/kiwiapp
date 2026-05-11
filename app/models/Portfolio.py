@@ -47,14 +47,73 @@ class Portfolio(db.Model):
             investments.append(f'{investment.ticker}:{investment.quantity}')
         return f'<Portfolio: id={self.id}; name={self.name}; description={self.description}; user={username}; investments={", ".join(investments)}>'
 
+    def _estimate_position_values(self) -> dict[str, dict[str, float]]:
+        positions: dict[str, dict[str, float]] = {}
+
+        transactions = sorted(
+            self.transactions or [],
+            key=lambda transaction: getattr(transaction, 'date_time', None),
+        )
+        for transaction in transactions:
+            ticker = getattr(transaction, 'ticker', None)
+            quantity = getattr(transaction, 'quantity', 0) or 0
+            price = getattr(transaction, 'price', 0.0) or 0.0
+            transaction_type = getattr(transaction, 'transaction_type', '')
+
+            if not ticker or quantity <= 0:
+                continue
+
+            position = positions.setdefault(ticker, {'quantity': 0.0, 'cost': 0.0})
+            if transaction_type == 'BUY':
+                position['quantity'] += quantity
+                position['cost'] += price * quantity
+            elif transaction_type == 'SELL' and position['quantity'] > 0:
+                sell_quantity = min(quantity, position['quantity'])
+                average_cost = position['cost'] / position['quantity'] if position['quantity'] else 0.0
+                position['quantity'] -= sell_quantity
+                position['cost'] = max(0.0, position['cost'] - (average_cost * sell_quantity))
+
+        estimated_positions: dict[str, dict[str, float]] = {}
+        for investment in self.investments or []:
+            ticker = getattr(investment, 'ticker', None)
+            quantity = getattr(investment, 'quantity', 0) or 0
+            if not ticker or quantity <= 0:
+                continue
+
+            position = positions.get(ticker)
+            if position and position['quantity'] > 0:
+                average_cost = position['cost'] / position['quantity']
+                estimated_total_value = average_cost * quantity
+                estimated_positions[ticker] = {
+                    'estimated_price': average_cost,
+                    'estimated_total_value': estimated_total_value,
+                }
+            else:
+                estimated_positions[ticker] = {
+                    'estimated_price': 0.0,
+                    'estimated_total_value': 0.0,
+                }
+
+        return estimated_positions
+
     def __to_dict__(self):
         try:
+            estimated_positions = self._estimate_position_values()
             investments = []
+            total_portfolio_value = 0.0
             for investment in self.investments or []:
+                ticker = getattr(investment, 'ticker', None)
+                estimate = estimated_positions.get(
+                    ticker,
+                    {'estimated_price': 0.0, 'estimated_total_value': 0.0},
+                )
+                total_portfolio_value += estimate['estimated_total_value']
                 investments.append(
                     {
-                        'ticker': getattr(investment, 'ticker', None),
+                        'ticker': ticker,
                         'quantity': getattr(investment, 'quantity', None),
+                        'estimated_price': estimate['estimated_price'],
+                        'estimated_total_value': estimate['estimated_total_value'],
                     }
                 )
             result = {
@@ -64,9 +123,8 @@ class Portfolio(db.Model):
                 'owner': self.owner,
                 'investments_count': len(self.investments or []),
                 'investments': investments,
+                'total_portfolio_value': total_portfolio_value,
             }
-            print('DEBUG: Portfolio.__to_dict__ result =', result)
             return result
         except Exception as ex:
-            print('ERROR: Portfolio.__to_dict__ failed:', ex)
             return {'id': self.id, 'error': str(ex)}

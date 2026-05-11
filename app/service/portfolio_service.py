@@ -12,10 +12,18 @@ class PortfolioOperationError(Exception):
     pass
 
 
-def create_portfolio(name: str, description: str, user: User) -> Portfolio:
-    if not name or not description or not user:
+def create_portfolio(name: str, description: str | None, user: User) -> Portfolio:
+    normalized_name = (name or '').strip()
+    normalized_description = (description or '').strip() or None
+
+    if not normalized_name or not user:
         raise UnsupportedPortfolioOperationError('Invalid portfolio input')
-    portfolio = Portfolio(name=name, description=description, user=user, owner=user.username)
+    portfolio = Portfolio(
+        name=normalized_name,
+        description=normalized_description,
+        user=user,
+        owner=user.username,
+    )
     db.session.add(portfolio)
     db.session.flush()  # Ensure portfolio.id is generated
     owner_access = PortfolioAccess(username=user.username, portfolio_id=portfolio.id, role='Owner')
@@ -38,11 +46,23 @@ def get_portfolio_by_id(portfolio_id: int) -> Portfolio | None:
     return portfolio
 
 
-def delete_portfolio(portfolio_id: int):
+def get_portfolio_role(portfolio: Portfolio, username: str) -> str | None:
+    for access in portfolio.accesses or []:
+        if access.username == username:
+            return access.role
+    return None
+
+
+def delete_portfolio(portfolio_id: int) -> Portfolio:
     portfolio = db.session.query(Portfolio).filter_by(id=portfolio_id).one_or_none()
     if not portfolio:
         raise PortfolioOperationError(f'Portfolio {portfolio_id} not found')
+    if any((getattr(investment, 'quantity', 0) or 0) > 0 for investment in portfolio.investments or []):
+        raise UnsupportedPortfolioOperationError(
+            f'Portfolio "{portfolio.name}" cannot be deleted while it still contains holdings.'
+        )
     db.session.delete(portfolio)
+    return portfolio
 
 def grant_portfolio_access(portfolio_id: int, username: str, role: str):
     if role not in ['Owner', 'Manager', 'Viewer']:
