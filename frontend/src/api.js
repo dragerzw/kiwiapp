@@ -103,5 +103,5 @@ export const api = {
     request("/trades/buy", { method: "POST", body: JSON.stringify(tradeData) }, token),
   sellTrade: (tradeData, token) =>
     request("/trades/sell", { method: "POST", body: JSON.stringify(tradeData) }, token),
-  getUsers: (token) => request("/user/", {}, token),
+  getUsers: (token) => request("/users/", {}, token),
 };
