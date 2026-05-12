@@ -91,6 +91,11 @@
   border-bottom: 1px solid #f1f5f9;
 }
 
+.admin-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .admin-table tr:last-child td {
   border-bottom: none;
 }

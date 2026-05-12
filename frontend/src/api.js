@@ -104,4 +104,7 @@ export const api = {
   sellTrade: (tradeData, token) =>
     request("/trades/sell", { method: "POST", body: JSON.stringify(tradeData) }, token),
   getUsers: (token) => request("/users/", {}, token),
+  deleteUser: (username, token) => request(`/users/${username}`, { method: "DELETE" }, token),
+  updateUserBalance: (balanceData, token) =>
+    request("/users/update-balance", { method: "PUT", body: JSON.stringify(balanceData) }, token),
 };

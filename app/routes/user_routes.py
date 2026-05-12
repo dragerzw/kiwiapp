@@ -80,7 +80,11 @@ def create_user():
 def update_balance():
     req_data = UserUpdateBalanceRequest.model_validate(request.get_json(silent=True) or {})
     try:
-        if req_data.username != g.user['username']:
+        claims = g.user.get('claims', {})
+        groups = claims.get('cognito:groups', [])
+        is_admin = 'Admins' in groups
+
+        if req_data.username != g.username and not is_admin:
             error_response = ErrorResponse(error='Unauthorized to update this user balance', code=403)
             return jsonify(error_response.model_dump()), 403
         user = user_service.get_user_by_username(req_data.username)
@@ -102,7 +106,11 @@ def update_balance():
 @require_auth
 def delete_user(username):
     try:
-        if g.user['username'] != username:
+        claims = g.user.get('claims', {})
+        groups = claims.get('cognito:groups', [])
+        is_admin = 'Admins' in groups
+
+        if g.username != username and not is_admin:
             error_response = ErrorResponse(error='Unauthorized to delete this user', code=403)
             return jsonify(error_response.model_dump()), 403
         if username == 'admin':

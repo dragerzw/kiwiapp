@@ -196,9 +196,14 @@ def grant_access(portfolio_id):
 def delete_portfolio(portfolio_id):
     try:
         logger.debug('delete_portfolio called for id: %s', portfolio_id)
-        if not portfolio_service.has_portfolio_access(portfolio_id, g.username, ['Owner']):
+        
+        claims = g.user.get('claims', {})
+        groups = claims.get('cognito:groups', [])
+        is_admin = 'Admins' in groups
+
+        if not portfolio_service.has_portfolio_access(portfolio_id, g.username, ['Owner']) and not is_admin:
             logger.debug('No access for user: %s', g.username)
-            error_response = ErrorResponse(error='Only the Owner can delete this portfolio', code=403)
+            error_response = ErrorResponse(error='Only the Owner (or an Admin) can delete this portfolio', code=403)
             return jsonify(error_response.model_dump()), 403
         portfolio_service.delete_portfolio(portfolio_id)
         db.session.commit()
