@@ -18,7 +18,7 @@ class PortfolioAccess(db.Model):
     portfolio_id: Mapped[int] = mapped_column(Integer, ForeignKey('portfolio.id'), nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False)  # either 'Owner', 'Manager', or 'Viewer'
 
-    user: Mapped['User'] = relationship('User', foreign_keys=[username], lazy='selectin')
+    user: Mapped['User'] = relationship('User', foreign_keys=[username], back_populates='portfolio_accesses', lazy='selectin')
     portfolio: Mapped['Portfolio'] = relationship(
         'Portfolio',
         foreign_keys=[portfolio_id],

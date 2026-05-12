@@ -13,8 +13,11 @@ from app.schemas.error_schemas import ErrorResponse
 
 def create_app(config):
     app = Flask(__name__)
-    CORS(app)
     app.config.from_object(config)
+    
+    # Configure CORS after loading settings to allow restricted origins
+    cors_origins = app.config.get('CORS_ORIGINS', '*')
+    CORS(app, origins=cors_origins)
 
     @app.route("/")
     def home():

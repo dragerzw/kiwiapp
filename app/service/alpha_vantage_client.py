@@ -92,12 +92,15 @@ def _request_alpha_vantage(function: str, **params) -> dict:
         _wait_for_alpha_vantage_window()
 
         try:
-            response = requests.get(
-                ALPHA_VANTAGE_BASE_URL,
-                params={"function": function, "apikey": _get_api_key(), **params},
-                timeout=10,
-                proxies={},
-            )
+            kwargs = {
+                "params": {"function": function, "apikey": _get_api_key(), **params},
+                "timeout": 10,
+            }
+            # Only bypass proxies if explicitly configured to do so
+            if current_app.config.get('DISABLE_OUTBOUND_PROXIES', False):
+                kwargs["proxies"] = {}
+
+            response = requests.get(ALPHA_VANTAGE_BASE_URL, **kwargs)
             response.raise_for_status()
             data = response.json()
         except requests.RequestException as e:

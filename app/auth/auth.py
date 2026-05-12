@@ -34,11 +34,14 @@ def _safe_claim_diagnostics(token: str) -> Dict:
     }
 
 def _get_session() -> requests.Session:
-    """Create a requests session that ignores system proxy environment variables.
-    This ensures the JWKS fetch goes directly to Cognito without being intercepted.
+    """Create a requests session for JWKS fetching.
+    By default, requests will honor system/environment proxy settings. Proxy
+    handling is only disabled when the application explicitly enables the
+    DISABLE_OUTBOUND_PROXIES configuration flag.
     """
     session = requests.Session()
-    session.trust_env = False  # Disable proxy handling
+    if current_app.config.get('DISABLE_OUTBOUND_PROXIES', False):
+        session.trust_env = False  # Disable proxy handling only when configured
     return session
 
 class CognitoTokenValidator:
