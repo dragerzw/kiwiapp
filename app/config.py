@@ -24,8 +24,9 @@ class Config:
     COGNITO_REGION = os.environ.get('COGNITO_REGION', 'us-east-1')
     AUTO_CREATE_SCHEMA = _env_truthy('AUTO_CREATE_SCHEMA')
     SEED_DEFAULT_DEV_USER = _env_truthy('SEED_DEFAULT_DEV_USER')
-    ENABLE_AUTH_JIT_PROVISIONING = _env_truthy('ENABLE_AUTH_JIT_PROVISIONING')
+    ENABLE_AUTH_JIT_PROVISIONING = _env_truthy('ENABLE_AUTH_JIT_PROVISIONING', default=True)
     ENABLE_DEBUG_AUTH_DIAGNOSTICS = _env_truthy('ENABLE_DEBUG_AUTH_DIAGNOSTICS')
+    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', '*')
 
 
 class TestConfig(Config):
