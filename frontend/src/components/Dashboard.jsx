@@ -122,29 +122,39 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-container">
-      {/* GLOBAL HEADER/HERO (Only show when NOT in detail view) */}
+      {/* COMPACT GLOBAL HEADER (Only show when NOT in detail view) */}
       {!selectedPortfolio && (
         <>
-          <section className="dashboard-hero" style={{ paddingBottom: '2rem' }}>
-            <div className="dashboard-hero-copy">
-              <p className="dashboard-eyebrow">Portfolio Workspace</p>
-              <h1 className="dashboard-title">Welcome back.</h1>
+          <section className="dashboard-floating-hero">
+            <div className="hero-content-left">
+              <div className="hero-status-dot"></div>
+              <h1 className="hero-greeting">Welcome back, <span className="hero-accent">Investor</span></h1>
             </div>
-            <div className="dashboard-kpis">
-              <article className="dashboard-kpi">
-                <span className="dashboard-kpi-label">Total Value</span>
-                <strong className="dashboard-kpi-value">${totalPortfolioValue.toFixed(2)}</strong>
-              </article>
-              <article className="dashboard-kpi">
-                <span className="dashboard-kpi-label">My Portfolios</span>
-                <strong className="dashboard-kpi-value">{portfolioCount}</strong>
-              </article>
+            <div className="hero-content-right">
+              <div className="stat-group">
+                <span className="stat-label">Total Assets</span>
+                <strong className="stat-value">${totalPortfolioValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+              </div>
+              <div className="stat-divider"></div>
+              <div className="stat-group">
+                <span className="stat-label">Portfolios</span>
+                <strong className="stat-value">{portfolioCount}</strong>
+              </div>
             </div>
           </section>
 
-          <header className="dashboard-header" style={{ justifyContent: "space-between", borderBottom: 'none' }}>
-            <h2 className="section-title" style={{ margin: 0 }}>Your Portfolios</h2>
-            <button className="btn btn-primary" onClick={handleCreate}>+ New Portfolio</button>
+          <header className="dashboard-view-header">
+            <div className="view-title-group">
+              <h2 className="view-title">Active Portfolios</h2>
+              <div className="view-count-badge">{portfolioCount} Total</div>
+            </div>
+            <button className="btn btn-primary btn-with-icon" onClick={handleCreate}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>New Portfolio</span>
+            </button>
           </header>
 
           {error && <div className="status-banner status-banner-error">{error}</div>}
