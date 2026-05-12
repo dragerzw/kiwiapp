@@ -64,13 +64,21 @@ def _enrich_portfolio(portfolio_dict: dict) -> dict:
 @portfolio_bp.route('/', methods=['GET'])
 @require_auth
 def get_all_portfolios():
-    user = user_service.get_user_by_username(g.username)
-    if user is None:
-        error_response = ErrorResponse(error=f'User {g.username} not found', code=403)
-        return jsonify(error_response.model_dump()), 403
     try:
+        claims = g.user.get('claims', {})
+        groups = claims.get('cognito:groups', [])
+        is_admin = 'Admins' in groups
+
         include_quotes = _should_include_quotes()
-        portfolios = portfolio_service.get_portfolios_by_user(user)
+        
+        if is_admin:
+            portfolios = portfolio_service.get_all_portfolios()
+        else:
+            user = user_service.get_user_by_username(g.username)
+            if user is None:
+                error_response = ErrorResponse(error=f'User {g.username} not found', code=403)
+                return jsonify(error_response.model_dump()), 403
+            portfolios = portfolio_service.get_portfolios_by_user(user)
         result = []
         for p in portfolios:
             try:

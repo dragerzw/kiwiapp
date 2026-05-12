@@ -1,7 +1,7 @@
 import { useAuth } from "../AuthContext";
 import { Link } from "react-router-dom";
 
-export default function Navbar({ onSignOut }) {
+export default function Navbar({ onSignOut, isAdmin, showAdminView, onToggleAdmin }) {
   const { isAuthenticated, user } = useAuth();
 
   return (
@@ -21,6 +21,11 @@ export default function Navbar({ onSignOut }) {
               {user?.profile?.name || user?.profile?.email || user?.profile?.username}
             </span>
           </div>
+          {isAdmin && (
+            <button className="btn btn-outline" onClick={onToggleAdmin} style={{ marginRight: '0.5rem' }}>
+              {showAdminView ? "User View" : "Admin View"}
+            </button>
+          )}
           <button className="btn btn-outline" onClick={onSignOut} type="button">
             Sign Out
           </button>

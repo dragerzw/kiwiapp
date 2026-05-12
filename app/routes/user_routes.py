@@ -15,9 +15,17 @@ user_bp = Blueprint('user', __name__)
 @require_auth
 def get_users():
     try:
-        user = user_service.get_user_by_username(g.user['username'])
+        claims = g.user.get('claims', {})
+        groups = claims.get('cognito:groups', [])
+        is_admin = 'Admins' in groups
+
+        if is_admin:
+            users = user_service.get_all_users()
+            return jsonify([u.__to_dict__() for u in users]), 200
+
+        user = user_service.get_user_by_username(g.username)
         if user is None:
-            error_response = ErrorResponse(error=f'User {g.user["username"]} not found', code=403)
+            error_response = ErrorResponse(error=f'User {g.username} not found', code=403)
             return jsonify(error_response.model_dump()), 403
         return jsonify([user.__to_dict__()]), 200
     except Exception as e:
