@@ -66,7 +66,8 @@ def _enrich_portfolio(portfolio_dict: dict) -> dict:
 def get_all_portfolios():
     try:
         claims = g.user.get('claims', {})
-        groups = claims.get('cognito:groups', [])
+        # Support both 'cognito:groups' and 'groups' keys
+        groups = claims.get('cognito:groups', []) or claims.get('groups', [])
         is_admin = 'Admins' in groups
 
         include_quotes = _should_include_quotes()

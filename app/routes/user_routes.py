@@ -16,8 +16,11 @@ user_bp = Blueprint('user', __name__)
 def get_users():
     try:
         claims = g.user.get('claims', {})
-        groups = claims.get('cognito:groups', [])
+        # Support both 'cognito:groups' and 'groups' keys
+        groups = claims.get('cognito:groups', []) or claims.get('groups', [])
         is_admin = 'Admins' in groups
+        
+        current_app.logger.debug(f'Admin check for {g.username}: is_admin={is_admin}, groups={groups}')
 
         if is_admin:
             users = user_service.get_all_users()
