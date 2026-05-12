@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { useAuth } from "react-oidc-context";
+import { useAuth } from "../AuthContext";
 import { api } from "../api";
+
 
 const CreatePortfolioModal = ({ onClose, onSuccess }) => {
   const auth = useAuth();
+  const authToken = auth?.token;
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
@@ -27,7 +29,7 @@ const CreatePortfolioModal = ({ onClose, onSuccess }) => {
           name: trimmedName,
           description: description.trim() || null,
         },
-        auth.user?.id_token,
+        authToken,
       );
 
       onSuccess?.(`Created portfolio "${trimmedName}".`);
@@ -71,6 +73,9 @@ const CreatePortfolioModal = ({ onClose, onSuccess }) => {
               rows="3"
               value={description}
             />
+            <p className="modal-note">
+              Portfolios can be actively traded upon creation. For security, deletion is disabled while active positions remain.
+            </p>
           </div>
           <div className="modal-actions">
             <button className="btn btn-outline" disabled={loading} onClick={onClose} type="button">

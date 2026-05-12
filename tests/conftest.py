@@ -36,14 +36,24 @@ def client(app):
     return app.test_client()
 
 @pytest.fixture(scope='function')
-def auth_headers(monkeypatch):
+def auth_headers(monkeypatch, app):
     """Provides valid authorization headers for tests."""
     monkeypatch.setattr('app.auth.auth.jwt.get_unverified_header', lambda x: {"kid": "key1"})
     monkeypatch.setattr('app.auth.auth.CognitoTokenValidator._get_jwks', lambda self: {"keys": [{"kid": "key1", "kty": "RSA", "alg": "RS256"}]})
     monkeypatch.setattr('jose.backends.rsa_backend.RSAKey._process_jwk', lambda self, jwk_dict: "dummy_rsa_key")
+
+    validator = app.config.get('COGNITO_VALIDATOR')
+    issuer = getattr(validator, 'issuer', "https://cognito-idp.us-east-1.amazonaws.com/test_pool")
+    client_id = getattr(validator, 'app_client_id', "test_client")
     
     def mock_decode(*args, **kwargs):
-        return {"sub": "admin", "username": "admin"}
+        return {
+            "sub": "admin",
+            "username": "admin",
+            "token_use": "id",
+            "aud": client_id,
+            "iss": issuer,
+        }
     monkeypatch.setattr('app.auth.auth.jwt.decode', mock_decode)
 
     return {"Authorization": "Bearer validtoken"}

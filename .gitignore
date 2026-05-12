@@ -9,5 +9,10 @@ notes/
 app.*
 local/
 .ruff*
-*.md
 test_output.txt
+flask.log
+instance/
+scratch/
+node_modules/
+dist/
+.DS_Store

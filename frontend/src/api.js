@@ -20,6 +20,11 @@ const request = async (endpoint, options = {}, token = null) => {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
+  // DEBUG: log outgoing API calls and token presence (do not log full token)
+  try {
+    // eslint-disable-next-line no-console
+    console.debug('[kiwi-debug] API request', { endpoint, method: options.method || 'GET', tokenPresent: Boolean(token) });
+  } catch (e) {}
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
@@ -33,6 +38,14 @@ const request = async (endpoint, options = {}, token = null) => {
   }
 
   if (!response.ok) {
+    // DEBUG: log non-ok responses for diagnosis
+    try {
+      // eslint-disable-next-line no-console
+      console.debug('[kiwi-debug] API response error', { endpoint, status: response.status });
+    } catch (e) {}
+    try {
+      window.__kiwi_last_api_error = { endpoint, status: response.status, body: data };
+    } catch (e) {}
     const errorMessage =
       data?.error || data?.message || `Error: ${response.status} ${response.statusText}`;
     if (response.status === 401) {

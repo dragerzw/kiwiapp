@@ -10,7 +10,8 @@ export const LOGOUT_MARKER_KEY = "kiwi:pause-auto-signin";
 
 const authority = import.meta.env.VITE_COGNITO_AUTHORITY || DEFAULT_AUTHORITY;
 const clientId = import.meta.env.VITE_COGNITO_CLIENT_ID || DEFAULT_CLIENT_ID;
-const redirectUri = import.meta.env.VITE_COGNITO_REDIRECT_URI || DEFAULT_REDIRECT_URI;
+const rawRedirectUri = import.meta.env.VITE_COGNITO_REDIRECT_URI || DEFAULT_REDIRECT_URI;
+const redirectUri = rawRedirectUri.endsWith("/") ? rawRedirectUri : `${rawRedirectUri}/`;
 const postLogoutRedirectUri =
   import.meta.env.VITE_COGNITO_POST_LOGOUT_REDIRECT_URI || DEFAULT_POST_LOGOUT_REDIRECT_URI;
 const cognitoDomain = import.meta.env.VITE_COGNITO_DOMAIN?.replace(/\/+$/, "") || null;
@@ -22,6 +23,8 @@ export const SIGNED_OUT_PATH = new URL(
 export const cognitoLogoutUrl = cognitoDomain
   ? `${cognitoDomain}/logout?client_id=${encodeURIComponent(clientId)}&logout_uri=${encodeURIComponent(postLogoutRedirectUri)}`
   : null;
+
+export const getApiToken = (user) => user?.id_token || user?.access_token || null;
 
 export const clearStoredAuthState = () => {
   const managedKeyPrefixes = [

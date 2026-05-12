@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useAuth } from "react-oidc-context";
+import { useAuth } from "../AuthContext";
 import { api } from "../api";
+
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -9,6 +10,7 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
 
 const PortfolioCard = ({ portfolio, onDeleteError, onDeleteSuccess, onSelect }) => {
   const auth = useAuth();
+  const authToken = auth?.token;
   const [deleting, setDeleting] = useState(false);
 
   const handleDelete = async (event) => {
@@ -20,7 +22,7 @@ const PortfolioCard = ({ portfolio, onDeleteError, onDeleteSuccess, onSelect }) 
 
     try {
       setDeleting(true);
-      await api.deletePortfolio(portfolio.id, auth.user?.id_token);
+      await api.deletePortfolio(portfolio.id, authToken);
       onDeleteSuccess?.(`Deleted portfolio "${portfolio.name}".`);
     } catch (deleteError) {
       onDeleteError?.(`Unable to delete "${portfolio.name}": ${deleteError.message}`);

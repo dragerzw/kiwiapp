@@ -32,9 +32,33 @@ def test_valid_token_mocked(client, app, monkeypatch):
     monkeypatch.setattr('app.auth.auth.CognitoTokenValidator._get_jwks', lambda self: {"keys": [{"kid": "key1", "kty": "RSA", "alg": "RS256"}]})
     
     def mock_decode(*args, **kwargs):
-        return {"sub": "user123", "username": "testuser"}
+        return {
+            "sub": "user123",
+            "username": "testuser",
+            "token_use": "id",
+            "aud": "dummy-client",
+            "iss": "https://cognito-idp.dummy-region.amazonaws.com/dummy-pool",
+        }
     monkeypatch.setattr('app.auth.auth.jwt.decode', mock_decode)
     
+    response = client.get('/test_protected', headers={"Authorization": "Bearer validtoken"})
+    assert response.status_code == 200
+    assert response.json["username"] == "testuser"
+
+def test_valid_access_token_mocked(client, app, monkeypatch):
+    monkeypatch.setattr('app.auth.auth.jwt.get_unverified_header', lambda x: {"kid": "key1"})
+    monkeypatch.setattr('app.auth.auth.CognitoTokenValidator._get_jwks', lambda self: {"keys": [{"kid": "key1", "kty": "RSA", "alg": "RS256"}]})
+
+    def mock_decode(*args, **kwargs):
+        return {
+            "sub": "user123",
+            "username": "testuser",
+            "token_use": "access",
+            "client_id": "dummy-client",
+            "iss": "https://cognito-idp.dummy-region.amazonaws.com/dummy-pool",
+        }
+    monkeypatch.setattr('app.auth.auth.jwt.decode', mock_decode)
+
     response = client.get('/test_protected', headers={"Authorization": "Bearer validtoken"})
     assert response.status_code == 200
     assert response.json["username"] == "testuser"

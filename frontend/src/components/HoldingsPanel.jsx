@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "react-oidc-context";
+import { useAuth } from "../AuthContext";
 import { api } from "../api";
+
 import TradeModal from "./TradeModal";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -12,7 +13,7 @@ const numberFormatter = new Intl.NumberFormat("en-US");
 
 const HoldingsPanel = ({ onBack, onSignOut, portfolioId, signOutError = null }) => {
   const auth = useAuth();
-  const idToken = auth.user?.id_token;
+  const authToken = auth?.token;
   const [portfolio, setPortfolio] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,7 +24,7 @@ const HoldingsPanel = ({ onBack, onSignOut, portfolioId, signOutError = null }) 
   const canTrade = !!portfolio && ["Owner", "Manager"].includes(portfolio.access_role);
 
   useEffect(() => {
-    if (!idToken) {
+    if (!authToken) {
       return;
     }
 
@@ -33,8 +34,8 @@ const HoldingsPanel = ({ onBack, onSignOut, portfolioId, signOutError = null }) 
       setLoading(true);
       try {
         const [portfolioData, transactionData] = await Promise.all([
-          api.getPortfolioDetails(portfolioId, idToken),
-          api.getTransactions(portfolioId, idToken),
+          api.getPortfolioDetails(portfolioId, authToken),
+          api.getTransactions(portfolioId, authToken),
         ]);
 
         if (cancelled) {
@@ -61,7 +62,7 @@ const HoldingsPanel = ({ onBack, onSignOut, portfolioId, signOutError = null }) 
     return () => {
       cancelled = true;
     };
-  }, [idToken, portfolioId, refreshKey]);
+  }, [authToken, portfolioId, refreshKey]);
 
   const refreshPortfolioData = () => {
     setRefreshKey((value) => value + 1);

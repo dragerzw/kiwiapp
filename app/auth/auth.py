@@ -11,6 +11,30 @@ class ErrorResponse(BaseModel):
     error_message: str
     request_id: str = ''
 
+
+def _safe_claim_diagnostics(token: str) -> Dict:
+    try:
+        claims = jwt.get_unverified_claims(token)
+    except JWTError:
+        claims = {}
+
+    try:
+        header = jwt.get_unverified_header(token)
+    except JWTError:
+        header = {}
+
+    return {
+        'kid': header.get('kid'),
+        'iss': claims.get('iss'),
+        'aud': claims.get('aud'),
+        'client_id': claims.get('client_id'),
+        'token_use': claims.get('token_use'),
+        'username': claims.get('username'),
+        'cognito_username': claims.get('cognito:username'),
+        'email': claims.get('email'),
+        'sub_present': bool(claims.get('sub')),
+    }
+
 def _get_session() -> requests.Session:
     """Create a requests session that ignores system proxy environment variables.
     This ensures the JWKS fetch goes directly to Cognito without being intercepted.
@@ -50,6 +74,29 @@ class CognitoTokenValidator:
         except JWTError:
             return None
 
+    def _has_expected_audience(self, audience_claim) -> bool:
+        if isinstance(audience_claim, list):
+            return self.app_client_id in audience_claim
+        return audience_claim == self.app_client_id
+
+    def _validate_verified_claims(self, claims: Dict) -> Dict:
+        if claims.get('iss') != self.issuer:
+            raise JWTClaimsError('Invalid issuer')
+
+        token_use = claims.get('token_use')
+        if token_use == 'access':
+            if claims.get('client_id') != self.app_client_id:
+                raise JWTClaimsError('Invalid access token client_id')
+            return claims
+
+        if self._has_expected_audience(claims.get('aud')):
+            return claims
+
+        if claims.get('client_id') == self.app_client_id:
+            return claims
+
+        raise JWTClaimsError('Invalid token audience/client_id')
+
     def validate_token(self, token: str) -> Dict:
         signing_key = self._get_signing_key(token)
         if not signing_key:
@@ -59,20 +106,20 @@ class CognitoTokenValidator:
                 token,
                 signing_key,
                 algorithms=['RS256'],
-                audience=self.app_client_id,
                 issuer=self.issuer,
                 options={
                     'verify_signature': True,
                     'verify_exp': True,
-                    'verify_aud': True,
+                    'verify_aud': False,
                     'verify_iss': True,
+                    'verify_at_hash': False,
                 },
             )
-            return claims
+            return self._validate_verified_claims(claims)
         except ExpiredSignatureError:
             raise Exception('Token has expired')
-        except JWTClaimsError:
-            raise Exception('Invalid claims in token (check audience/issuer)')
+        except JWTClaimsError as e:
+            raise Exception(f'Invalid claims in token (check audience/issuer): {str(e)}')
         except JWTError as e:
             raise Exception(f'Token validation failed: {str(e)}')
 
@@ -100,9 +147,30 @@ def require_auth(f):
         try:
             claims = validator.validate_token(token)
             username = claims.get('cognito:username') or claims.get('username')
+            
+            # Just-In-Time (JIT) User Provisioning
+            from app.service import user_service
+            from app.db import db
+            user = user_service.get_user_by_username(username)
+            if user is None:
+                current_app.logger.info('Provisioning new user for Cognito username: %s', username)
+                user_service.create_user(
+                    username=username,
+                    password='cognito-managed',
+                    firstname=claims.get('given_name') or claims.get('name') or 'User',
+                    lastname=claims.get('family_name') or '',
+                    balance=1000.0
+                )
+                db.session.commit()
+
             g.user = {'user_id': claims.get('sub'), 'username': username, 'claims': claims}
             g.username = username
         except Exception as e:
+            current_app.logger.warning(
+                'Auth validation failed: %s | diagnostics=%s',
+                str(e),
+                _safe_claim_diagnostics(token),
+            )
             from app.schemas.error_schemas import ErrorResponse
             return jsonify(ErrorResponse(error="Token validation failed: " + str(e), code=401).model_dump()), 401
         return f(*args, **kwargs)

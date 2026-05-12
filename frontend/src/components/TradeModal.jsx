@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { useAuth } from "react-oidc-context";
+import { useAuth } from "../AuthContext";
 import { api } from "../api";
+
 
 const TradeModal = ({ investments = [], onClose, onSuccess, portfolioId }) => {
   const auth = useAuth();
+  const authToken = auth?.token;
   const [type, setType] = useState("BUY");
   const [ticker, setTicker] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -45,9 +47,9 @@ const TradeModal = ({ investments = [], onClose, onSuccess, portfolioId }) => {
       };
 
       if (type === "BUY") {
-        await api.buyTrade(tradeData, auth.user?.id_token);
+        await api.buyTrade(tradeData, authToken);
       } else {
-        await api.sellTrade(tradeData, auth.user?.id_token);
+        await api.sellTrade(tradeData, authToken);
       }
 
       onSuccess?.(`Executed ${type} order for ${parsedQuantity} share(s) of ${activeTicker}.`);
