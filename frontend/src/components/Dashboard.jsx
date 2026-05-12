@@ -11,7 +11,8 @@ const TRADABLE_ROLES = ["Owner", "Manager"];
 
 export default function Dashboard() {
   const auth = useAuth();
-  const { isAuthenticated, token: authToken } = auth || {};
+  const { isAuthenticated, token: authToken, user } = auth || {};
+  const firstName = user?.profile?.given_name || user?.profile?.name || "Investor";
   const [portfolios, setPortfolios] = useState([]);
   const [selectedPortfolio, setSelectedPortfolio] = useState(null);
   const [transactions, setTransactions] = useState([]);
@@ -128,7 +129,7 @@ export default function Dashboard() {
           <section className="dashboard-floating-hero">
             <div className="hero-content-left">
               <div className="hero-status-dot"></div>
-              <h1 className="hero-greeting">Welcome back, <span className="hero-accent">Investor</span></h1>
+              <h1 className="hero-greeting">Welcome back, <span className="hero-accent">{firstName}</span></h1>
             </div>
             <div className="hero-content-right">
               <div className="stat-group">
