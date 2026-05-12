@@ -2,6 +2,24 @@ const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:500
 const API_BASE_URL = rawApiBaseUrl.replace(/\/+$/, "");
 export const AUTH_INVALID_EVENT = "kiwi:auth-invalid";
 
+const debugEnabled = (() => {
+  const envDebug = String(import.meta.env.VITE_ENABLE_DEBUG_TOOLS || "").toLowerCase();
+  const envEnabled = ["1", "true", "yes", "on"].includes(envDebug);
+  const queryEnabled = new URLSearchParams(globalThis.location.search).has("kiwi_debug");
+  return envEnabled || (import.meta.env.DEV && queryEnabled);
+})();
+
+const debugLog = (message, details) => {
+  if (!debugEnabled) {
+    return;
+  }
+  try {
+    console.debug(message, details);
+  } catch {
+    // Ignore debug logging failures.
+  }
+};
+
 export class ApiError extends Error {
   constructor(message, status, details = null) {
     super(message);
@@ -20,11 +38,11 @@ const request = async (endpoint, options = {}, token = null) => {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  // DEBUG: log outgoing API calls and token presence (do not log full token)
-  try {
-    // eslint-disable-next-line no-console
-    console.debug('[kiwi-debug] API request', { endpoint, method: options.method || 'GET', tokenPresent: Boolean(token) });
-  } catch (e) {}
+  debugLog("[kiwi-debug] API request", {
+    endpoint,
+    method: options.method || "GET",
+    tokenPresent: Boolean(token),
+  });
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
@@ -33,21 +51,26 @@ const request = async (endpoint, options = {}, token = null) => {
 
   let data = null;
   const contentType = response.headers.get("content-type");
-  if (contentType && contentType.includes("application/json")) {
+  if (contentType?.includes("application/json")) {
     data = await response.json();
   }
 
   if (!response.ok) {
-    // DEBUG: log non-ok responses for diagnosis
-    try {
-      // eslint-disable-next-line no-console
-      console.debug('[kiwi-debug] API response error', { endpoint, status: response.status });
-    } catch (e) {}
-    try {
-      window.__kiwi_last_api_error = { endpoint, status: response.status, body: data };
-    } catch (e) {}
+    debugLog("[kiwi-debug] API response error", { endpoint, status: response.status });
     const errorMessage =
       data?.error || data?.message || `Error: ${response.status} ${response.statusText}`;
+    if (debugEnabled) {
+      try {
+        globalThis.__kiwi_last_api_error = {
+          endpoint,
+          status: response.status,
+          message: errorMessage,
+          timestamp: new Date().toISOString(),
+        };
+      } catch {
+        // Ignore debug snapshot storage failures.
+      }
+    }
     if (response.status === 401) {
       globalThis.dispatchEvent(
         new CustomEvent(AUTH_INVALID_EVENT, {

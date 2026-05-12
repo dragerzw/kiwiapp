@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 function tryParse(str) {
   try {
     return JSON.parse(str);
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -20,7 +20,7 @@ export default function DebugOverlay({ auth }) {
       } else {
         setOidcUser(null);
       }
-      setLastApiError(window.__kiwi_last_api_error ?? null);
+      setLastApiError(globalThis.__kiwi_last_api_error ?? null);
     };
 
     refresh();
@@ -28,7 +28,7 @@ export default function DebugOverlay({ auth }) {
     return () => clearInterval(id);
   }, []);
 
-  if (!new URLSearchParams(window.location.search).get('kiwi_debug')) return null;
+  if (!new URLSearchParams(globalThis.location.search).get('kiwi_debug')) return null;
 
   return (
     <div style={{position: 'fixed', right: 12, bottom: 12, zIndex: 9999, width: 420, maxHeight: '60vh', overflow: 'auto', background: 'rgba(255,255,255,0.98)', border: '1px solid #e2e8f0', borderRadius: 8, padding: 12, boxShadow: '0 6px 20px rgba(0,0,0,0.08)'}}>

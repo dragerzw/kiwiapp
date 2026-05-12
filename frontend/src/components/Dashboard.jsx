@@ -85,6 +85,11 @@ export default function Dashboard() {
 
   const handleDeleteClick = (portfolio, e) => {
     if (e) e.stopPropagation();
+    if ((portfolio.investments_count || 0) > 0) {
+      setError(`Cannot delete "${portfolio.name}": Sell all holdings first.`);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     setPortfolioToDelete(portfolio);
   };
 
@@ -195,11 +200,10 @@ export default function Dashboard() {
                       <div className="portfolio-card-actions" style={{ justifyContent: "flex-end" }}>
                         <button
                           className="btn btn-danger btn-compact"
-                          disabled={(portfolio.investments_count || 0) > 0}
                           onClick={(e) => handleDeleteClick(portfolio, e)}
                           type="button"
                         >
-                          {(portfolio.investments_count || 0) > 0 ? "Sell holdings first" : "Delete"}
+                          Delete
                         </button>
                       </div>
                     </div>

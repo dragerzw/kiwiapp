@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask, jsonify
 from flask_cors import CORS
 from pydantic import ValidationError
@@ -21,20 +23,33 @@ def create_app(config):
     # register extensions
     db.init_app(app)
     cache.init_app(app)
-    # Ensure all tables exist
     with app.app_context():
-        db.create_all()
-        # Seed a default user for development if it does not exist
-        from app.service import user_service
-        if not user_service.get_user_by_username('drager'):
-            user_service.create_user(
-                username='drager',
-                password='password123',
-                firstname='Drager',
-                lastname='User',
-                balance=1000.0,
-            )
-            db.session.commit()
+        if app.config.get('AUTO_CREATE_SCHEMA', False):
+            db.create_all()
+
+        if app.config.get('SEED_DEFAULT_DEV_USER', False):
+            seed_username = os.environ.get('DEFAULT_DEV_USERNAME')
+            seed_password = os.environ.get('DEFAULT_DEV_PASSWORD')
+
+            if not seed_username or not seed_password:
+                app.logger.warning(
+                    'SEED_DEFAULT_DEV_USER is enabled but DEFAULT_DEV_USERNAME/DEFAULT_DEV_PASSWORD are missing',
+                )
+            else:
+                from app.service import user_service
+
+                if not user_service.get_user_by_username(seed_username):
+                    seed_firstname = os.environ.get('DEFAULT_DEV_FIRSTNAME', 'Dev')
+                    seed_lastname = os.environ.get('DEFAULT_DEV_LASTNAME', 'User')
+                    seed_balance = float(os.environ.get('DEFAULT_DEV_BALANCE', '1000.0'))
+                    user_service.create_user(
+                        username=seed_username,
+                        password=seed_password,
+                        firstname=seed_firstname,
+                        lastname=seed_lastname,
+                        balance=seed_balance,
+                    )
+                    db.session.commit()
 
     # Cognito validator setup
     from app.auth.auth import CognitoTokenValidator

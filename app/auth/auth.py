@@ -1,5 +1,6 @@
 from functools import wraps
 from typing import Dict, Optional
+import secrets
 
 import requests
 from flask import current_app, jsonify, request, g
@@ -25,14 +26,11 @@ def _safe_claim_diagnostics(token: str) -> Dict:
 
     return {
         'kid': header.get('kid'),
-        'iss': claims.get('iss'),
-        'aud': claims.get('aud'),
-        'client_id': claims.get('client_id'),
+        'iss_present': 'iss' in claims,
+        'aud_present': 'aud' in claims,
+        'client_id_present': 'client_id' in claims,
         'token_use': claims.get('token_use'),
-        'username': claims.get('username'),
-        'cognito_username': claims.get('cognito:username'),
-        'email': claims.get('email'),
-        'sub_present': bool(claims.get('sub')),
+        'sub_present': 'sub' in claims,
     }
 
 def _get_session() -> requests.Session:
@@ -147,30 +145,34 @@ def require_auth(f):
         try:
             claims = validator.validate_token(token)
             username = claims.get('cognito:username') or claims.get('username')
-            
-            # Just-In-Time (JIT) User Provisioning
-            from app.service import user_service
-            from app.db import db
-            user = user_service.get_user_by_username(username)
-            if user is None:
-                current_app.logger.info('Provisioning new user for Cognito username: %s', username)
-                user_service.create_user(
-                    username=username,
-                    password='cognito-managed',
-                    firstname=claims.get('given_name') or claims.get('name') or 'User',
-                    lastname=claims.get('family_name') or '',
-                    balance=1000.0
-                )
-                db.session.commit()
+
+            if current_app.config.get('ENABLE_AUTH_JIT_PROVISIONING', False):
+                from app.service import user_service
+                from app.db import db
+
+                user = user_service.get_user_by_username(username)
+                if user is None:
+                    current_app.logger.info('Provisioning new user for Cognito username: %s', username)
+                    user_service.create_user(
+                        username=username,
+                        password=secrets.token_urlsafe(24),
+                        firstname=claims.get('given_name') or claims.get('name') or 'User',
+                        lastname=claims.get('family_name') or '',
+                        balance=0.0,
+                    )
+                    db.session.commit()
 
             g.user = {'user_id': claims.get('sub'), 'username': username, 'claims': claims}
             g.username = username
         except Exception as e:
-            current_app.logger.warning(
-                'Auth validation failed: %s | diagnostics=%s',
-                str(e),
-                _safe_claim_diagnostics(token),
-            )
+            if current_app.config.get('ENABLE_DEBUG_AUTH_DIAGNOSTICS', False):
+                current_app.logger.warning(
+                    'Auth validation failed: %s | diagnostics=%s',
+                    str(e),
+                    _safe_claim_diagnostics(token),
+                )
+            else:
+                current_app.logger.warning('Auth validation failed: %s', str(e))
             from app.schemas.error_schemas import ErrorResponse
             return jsonify(ErrorResponse(error="Token validation failed: " + str(e), code=401).model_dump()), 401
         return f(*args, **kwargs)

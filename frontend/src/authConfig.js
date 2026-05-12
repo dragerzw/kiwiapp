@@ -1,15 +1,21 @@
 import { WebStorageStateStore } from "oidc-client-ts";
 
-const DEFAULT_AUTHORITY = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_yv9SqsmAR";
-const DEFAULT_CLIENT_ID = "59r7i820vi1ns03ts61tj7409c";
 const DEFAULT_SCOPE = "openid email profile";
-const DEFAULT_REDIRECT_URI = `${window.location.origin}/`;
-const DEFAULT_POST_LOGOUT_REDIRECT_URI = `${window.location.origin}/signed-out`;
+const DEFAULT_REDIRECT_URI = `${globalThis.location.origin}/`;
+const DEFAULT_POST_LOGOUT_REDIRECT_URI = `${globalThis.location.origin}/signed-out`;
 
 export const LOGOUT_MARKER_KEY = "kiwi:pause-auto-signin";
 
-const authority = import.meta.env.VITE_COGNITO_AUTHORITY || DEFAULT_AUTHORITY;
-const clientId = import.meta.env.VITE_COGNITO_CLIENT_ID || DEFAULT_CLIENT_ID;
+const requireEnv = (name) => {
+  const value = import.meta.env[name];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+};
+
+const authority = requireEnv("VITE_COGNITO_AUTHORITY");
+const clientId = requireEnv("VITE_COGNITO_CLIENT_ID");
 const rawRedirectUri = import.meta.env.VITE_COGNITO_REDIRECT_URI || DEFAULT_REDIRECT_URI;
 const redirectUri = rawRedirectUri.endsWith("/") ? rawRedirectUri : `${rawRedirectUri}/`;
 const postLogoutRedirectUri =
@@ -18,7 +24,7 @@ const cognitoDomain = import.meta.env.VITE_COGNITO_DOMAIN?.replace(/\/+$/, "") |
 
 export const SIGNED_OUT_PATH = new URL(
   postLogoutRedirectUri,
-  window.location.origin,
+  globalThis.location.origin,
 ).pathname;
 export const cognitoLogoutUrl = cognitoDomain
   ? `${cognitoDomain}/logout?client_id=${encodeURIComponent(clientId)}&logout_uri=${encodeURIComponent(postLogoutRedirectUri)}`
@@ -33,7 +39,7 @@ export const clearStoredAuthState = () => {
     `CognitoIdentityServiceProvider.${clientId}`,
   ];
 
-  for (const storage of [window.localStorage, window.sessionStorage]) {
+  for (const storage of [globalThis.localStorage, globalThis.sessionStorage]) {
     const keysToRemove = [];
     for (let index = 0; index < storage.length; index += 1) {
       const key = storage.key(index);
@@ -61,8 +67,8 @@ export const oidcConfig = {
   automaticSilentRenew: true,
   revokeTokensOnSignout: true,
   loadUserInfo: true,
-  userStore: new WebStorageStateStore({ store: window.localStorage }),
+  userStore: new WebStorageStateStore({ store: globalThis.localStorage }),
   onSigninCallback: () => {
-    window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+    globalThis.history.replaceState({}, document.title, globalThis.location.pathname + globalThis.location.hash);
   },
 };

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, List
 
 from sqlalchemy import ForeignKey, Integer, String
@@ -10,6 +11,9 @@ from app.db import db
 if TYPE_CHECKING:
     # imports that are used only for type checking to avoid circular dependencies
     from app.models import Investment, PortfolioAccess, Transaction, User
+
+
+logger = logging.getLogger(__name__)
 
 
 class Portfolio(db.Model):
@@ -126,5 +130,6 @@ class Portfolio(db.Model):
                 'total_portfolio_value': total_portfolio_value,
             }
             return result
-        except Exception as ex:
-            return {'id': self.id, 'error': str(ex)}
+        except Exception:
+            logger.exception('Failed to serialize portfolio id=%s', self.id)
+            return {'id': self.id, 'error': 'Failed to serialize portfolio'}

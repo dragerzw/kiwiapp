@@ -96,7 +96,7 @@ def _request_alpha_vantage(function: str, **params) -> dict:
                 ALPHA_VANTAGE_BASE_URL,
                 params={"function": function, "apikey": _get_api_key(), **params},
                 timeout=10,
-                proxies={"http": "", "https": ""},
+                proxies={},
             )
             response.raise_for_status()
             data = response.json()
