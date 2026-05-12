@@ -159,17 +159,23 @@ export default function Dashboard() {
                     type="button"
                   >
                     <div className="portfolio-card-body">
-                      <div className="portfolio-card-pills">
-                        <span className="role-pill">{portfolio.access_role || "Viewer"}</span>
-                        <span className={`state-pill ${TRADABLE_ROLES.includes(portfolio.access_role) ? "state-pill-tradable" : "state-pill-readonly"}`}>
-                          {TRADABLE_ROLES.includes(portfolio.access_role) ? "Can trade" : "View only"}
-                        </span>
+                      <div className="portfolio-card-header-row">
+                        <div className="portfolio-icon-wrapper">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                          </svg>
+                        </div>
+                        <div className="portfolio-card-pills">
+                          <span className="role-pill">{portfolio.access_role || "Viewer"}</span>
+                        </div>
                       </div>
                       <h4>{portfolio.name}</h4>
-                      <p>{portfolio.description || "No description"}</p>
-                      <div className="portfolio-card-label">Portfolio Balance</div>
-                      <div className="portfolio-card-value">
-                        {formatPortfolioValue(portfolio)}
+                      <p>{portfolio.description || "Active investment strategy"}</p>
+                      <div className="portfolio-card-value-section">
+                        <div className="portfolio-card-label">Net Asset Value</div>
+                        <div className="portfolio-card-value">
+                          {formatPortfolioValue(portfolio)}
+                        </div>
                       </div>
                     </div>
                   </button>
