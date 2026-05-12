@@ -153,17 +153,21 @@ def require_auth(f):
                 from app.service import user_service
                 from app.db import db
 
-                user = user_service.get_user_by_username(username)
-                if user is None:
-                    current_app.logger.info('Provisioning new user for Cognito username: %s', username)
-                    user_service.create_user(
-                        username=username,
-                        password=secrets.token_urlsafe(24),
-                        firstname=claims.get('given_name') or claims.get('name') or 'User',
-                        lastname=claims.get('family_name') or '',
-                        balance=0.0,
-                    )
-                    db.session.commit()
+                try:
+                    user = user_service.get_user_by_username(username)
+                    if user is None:
+                        current_app.logger.info('Provisioning new user for Cognito username: %s', username)
+                        user_service.create_user(
+                            username=username,
+                            password=secrets.token_urlsafe(24),
+                            firstname=claims.get('given_name') or claims.get('name') or 'User',
+                            lastname=claims.get('family_name') or '',
+                            balance=1000.0,
+                        )
+                        db.session.commit()
+                except IntegrityError:
+                    db.session.rollback()
+                    current_app.logger.info('User %s already exists, skipping JIT provisioning', username)
 
             g.user = {'user_id': claims.get('sub'), 'username': username, 'claims': claims}
             g.username = username
