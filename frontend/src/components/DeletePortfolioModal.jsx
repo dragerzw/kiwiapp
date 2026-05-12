@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api } from "../api";
+import BaseModal from "./BaseModal";
 
 const DeletePortfolioModal = ({ portfolio, authToken, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
@@ -18,29 +19,30 @@ const DeletePortfolioModal = ({ portfolio, authToken, onClose, onSuccess }) => {
   };
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-content">
-        <h2 style={{ marginBottom: "0.5rem" }}>Delete Portfolio</h2>
-        <p className="modal-note" style={{ marginBottom: "1.5rem" }}>
-          Are you sure you want to delete <strong>{portfolio.name}</strong>? This action cannot be undone.
-        </p>
-        
-        {error ? (
-          <div className="status-banner status-banner-error" role="alert">
-            {error}
-          </div>
-        ) : null}
-
-        <div className="modal-actions">
+    <BaseModal 
+      title="Delete Portfolio" 
+      onClose={onClose}
+      footer={
+        <>
           <button className="btn btn-outline" disabled={loading} onClick={onClose} type="button">
             Cancel
           </button>
           <button className="btn btn-danger" disabled={loading} onClick={handleDelete} type="button">
             {loading ? "Deleting..." : "Delete Portfolio"}
           </button>
+        </>
+      }
+    >
+      <p className="modal-note">
+        Are you sure you want to delete <strong>{portfolio.name}</strong>? This action cannot be undone.
+      </p>
+      
+      {error ? (
+        <div className="status-banner status-banner-error" role="alert" style={{marginTop: '1rem'}}>
+          {error}
         </div>
-      </div>
-    </div>
+      ) : null}
+    </BaseModal>
   );
 };
 

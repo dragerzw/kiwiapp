@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../AuthContext";
 import { api } from "../api";
+import BaseModal from "./BaseModal";
 
 
 const CreatePortfolioModal = ({ onClose, onSuccess }) => {
@@ -41,53 +42,55 @@ const CreatePortfolioModal = ({ onClose, onSuccess }) => {
   };
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-content">
-        <h2 style={{ marginBottom: "1.5rem" }}>Create Portfolio</h2>
-        <form onSubmit={handleSubmit}>
-          {error ? (
-            <div className="status-banner status-banner-error" role="alert">
-              {error}
-            </div>
-          ) : null}
-          <div className="form-group">
-            <label htmlFor="portfolio-name">Portfolio Name</label>
-            <input
-              autoFocus
-              className="form-control"
-              id="portfolio-name"
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Growth Fund"
-              required
-              type="text"
-              value={name}
-            />
+    <BaseModal 
+      title="Create Portfolio" 
+      onClose={onClose}
+      footer={
+        <>
+          <button className="btn btn-outline" disabled={loading} onClick={onClose} type="button">
+            Cancel
+          </button>
+          <button className="btn btn-primary" disabled={loading} onClick={handleSubmit} type="button">
+            {loading ? "Creating..." : "Create Portfolio"}
+          </button>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit}>
+        {error ? (
+          <div className="status-banner status-banner-error" role="alert" style={{marginBottom: '1rem'}}>
+            {error}
           </div>
-          <div className="form-group">
-            <label htmlFor="portfolio-description">Description (Optional)</label>
-            <textarea
-              className="form-control"
-              id="portfolio-description"
-              onChange={(event) => setDescription(event.target.value)}
-              placeholder="Long-term growth holdings"
-              rows="3"
-              value={description}
-            />
-            <p className="modal-note">
-              Portfolios can be actively traded upon creation. For security, deletion is disabled while active positions remain.
-            </p>
-          </div>
-          <div className="modal-actions">
-            <button className="btn btn-outline" disabled={loading} onClick={onClose} type="button">
-              Cancel
-            </button>
-            <button className="btn btn-primary" disabled={loading} type="submit">
-              {loading ? "Creating..." : "Create Portfolio"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        ) : null}
+        <div className="form-group">
+          <label htmlFor="portfolio-name">Portfolio Name</label>
+          <input
+            autoFocus
+            className="form-control"
+            id="portfolio-name"
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Growth Fund"
+            required
+            type="text"
+            value={name}
+          />
+        </div>
+        <div className="form-group">
+          <label htmlFor="portfolio-description">Description (Optional)</label>
+          <textarea
+            className="form-control"
+            id="portfolio-description"
+            onChange={(event) => setDescription(event.target.value)}
+            placeholder="Long-term growth holdings"
+            rows="3"
+            value={description}
+          />
+          <p className="modal-note" style={{marginTop: '0.75rem', fontSize: '0.8rem'}}>
+            Portfolios can be actively traded upon creation. For security, deletion is disabled while active positions remain.
+          </p>
+        </div>
+      </form>
+    </BaseModal>
   );
 };
 
