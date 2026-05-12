@@ -16,11 +16,17 @@ user_bp = Blueprint('user', __name__)
 def get_users():
     try:
         claims = g.user.get('claims', {})
-        # Support both 'cognito:groups' and 'groups' keys
+        # Extremely robust group check
         groups = claims.get('cognito:groups', []) or claims.get('groups', [])
-        is_admin = 'Admins' in groups
+        if isinstance(groups, str): # Handle cases where it might be a single string
+            groups = [groups]
+            
+        admin_group_names = {'Admins', 'Admin', 'Administrators', 'Administrator'}
+        is_admin = any(g in admin_group_names for g in groups)
         
-        current_app.logger.debug(f'Admin check for {g.username}: is_admin={is_admin}, groups={groups}')
+        current_app.logger.info(f'[AUTH DIAGNOSTIC] User: {g.username} | is_admin: {is_admin} | Groups found: {groups}')
+        if not is_admin:
+             current_app.logger.info(f'[AUTH DIAGNOSTIC] Full Claims: {claims}')
 
         if is_admin:
             users = user_service.get_all_users()
