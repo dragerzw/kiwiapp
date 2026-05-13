@@ -12,19 +12,7 @@ user_bp = Blueprint('user', __name__)
 INTERNAL_SERVER_ERROR_MESSAGE = 'Internal server error'
 
 
-def _get_normalized_groups(claims: dict) -> list[str]:
-    groups = claims.get('cognito:groups', []) or claims.get('groups', [])
-    if isinstance(groups, str):
-        return [groups]
-    if isinstance(groups, (list, tuple, set)):
-        return [group for group in groups if isinstance(group, str)]
-    return []
-
-
-def _is_admin(claims: dict) -> bool:
-    admin_group_names = {'Admins', 'Admin', 'Administrators', 'Administrator'}
-    groups = _get_normalized_groups(claims)
-    return any(group in admin_group_names for group in groups)
+from app.auth.helpers import is_admin
 
 
 @user_bp.route('/', methods=['GET'])
@@ -32,18 +20,17 @@ def _is_admin(claims: dict) -> bool:
 def get_users():
     try:
         claims = g.user.get('claims', {})
-        is_admin = _is_admin(claims)
+        is_admin_user = is_admin(claims)
 
         if current_app.config.get('ENABLE_DEBUG_AUTH_DIAGNOSTICS', False):
             current_app.logger.debug(
-                'Auth diagnostic: user=%s is_admin=%s groups=%s token_use=%s',
+                'Auth diagnostic: user=%s is_admin=%s token_use=%s',
                 g.username,
-                is_admin,
-                _get_normalized_groups(claims),
+                is_admin_user,
                 claims.get('token_use'),
             )
 
-        if is_admin:
+        if is_admin_user:
             users = user_service.get_all_users()
             return jsonify([u.__to_dict__() for u in users]), 200
 
@@ -105,9 +92,9 @@ def update_balance():
     req_data = UserUpdateBalanceRequest.model_validate(request.get_json(silent=True) or {})
     try:
         claims = g.user.get('claims', {})
-        is_admin = _is_admin(claims)
+        is_admin_user = is_admin(claims)
 
-        if req_data.username != g.username and not is_admin:
+        if req_data.username != g.username and not is_admin_user:
             error_response = ErrorResponse(error='Unauthorized to update this user balance', code=403)
             return jsonify(error_response.model_dump()), 403
         user = user_service.get_user_by_username(req_data.username)
@@ -130,9 +117,9 @@ def update_balance():
 def delete_user(username):
     try:
         claims = g.user.get('claims', {})
-        is_admin = _is_admin(claims)
+        is_admin_user = is_admin(claims)
 
-        if g.username != username and not is_admin:
+        if g.username != username and not is_admin_user:
             error_response = ErrorResponse(error='Unauthorized to delete this user', code=403)
             return jsonify(error_response.model_dump()), 403
         if username == 'admin':

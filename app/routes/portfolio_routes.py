@@ -30,22 +30,7 @@ def _serialize_portfolio(portfolio, include_quotes: bool = False) -> dict:
     return portfolio_dict
 
 
-def _get_admin_status_from_claims(claims: dict) -> bool:
-    """Determine if user is admin from Cognito claims.
-    
-    Handles multiple variations:
-    - cognito:groups or groups claim keys
-    - String, list, or None values (graceful fallback)
-    - Multiple admin group name variations
-    """
-    groups = claims.get('cognito:groups') or claims.get('groups') or []
-    if isinstance(groups, str):
-        groups = [groups]
-    elif not isinstance(groups, list):
-        groups = []
-        
-    admin_group_names = {'Admins', 'Admin', 'Administrators', 'Administrator'}
-    return any(isinstance(g, str) and g in admin_group_names for g in groups)
+from app.auth.helpers import is_admin
 
 
 def _enrich_portfolio(portfolio_dict: dict) -> dict:
@@ -84,7 +69,7 @@ def _enrich_portfolio(portfolio_dict: dict) -> dict:
 def get_all_portfolios():
     try:
         claims = g.user.get('claims', {})
-        is_admin = _get_admin_status_from_claims(claims)
+        is_admin_user = is_admin(claims)
 
         include_quotes = _should_include_quotes()
         
@@ -215,9 +200,9 @@ def delete_portfolio(portfolio_id):
         logger.debug('delete_portfolio called for id: %s', portfolio_id)
         
         claims = g.user.get('claims', {})
-        is_admin = _get_admin_status_from_claims(claims)
+        is_admin_user = is_admin(claims)
 
-        if not portfolio_service.has_portfolio_access(portfolio_id, g.username, ['Owner']) and not is_admin:
+        if not portfolio_service.has_portfolio_access(portfolio_id, g.username, ['Owner']) and not is_admin_user:
             logger.debug('No access for user: %s', g.username)
             error_response = ErrorResponse(error='Only the Owner (or an Admin) can delete this portfolio', code=403)
             return jsonify(error_response.model_dump()), 403

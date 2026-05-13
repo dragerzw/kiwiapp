@@ -37,7 +37,15 @@ def _seed_default_dev_user(app):
 
     seed_firstname = os.environ.get('DEFAULT_DEV_FIRSTNAME', 'Dev')
     seed_lastname = os.environ.get('DEFAULT_DEV_LASTNAME', 'User')
-    seed_balance = float(os.environ.get('DEFAULT_DEV_BALANCE', '1000.0'))
+    seed_balance_raw = os.environ.get('DEFAULT_DEV_BALANCE', '1000.0')
+    try:
+        seed_balance = float(seed_balance_raw)
+    except (TypeError, ValueError):
+        app.logger.warning(
+            "Invalid DEFAULT_DEV_BALANCE value %r; falling back to 1000.0",
+            seed_balance_raw,
+        )
+        seed_balance = 1000.0
     user_service.create_user(
         username=seed_username,
         password=seed_password,
