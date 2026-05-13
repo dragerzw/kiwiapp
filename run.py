@@ -4,7 +4,7 @@ import os
 
 # Use 'development' by default
 env = os.environ.get('FLASK_ENV', 'development')
-config_class = config.get(env)
+config_class = config.get(env, config.get('development'))
 app = create_app(config_class)
 
 if __name__ == "__main__":

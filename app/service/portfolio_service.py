@@ -53,11 +53,11 @@ def get_portfolio_role(portfolio: Portfolio, username: str) -> str | None:
     return None
 
 
-def delete_portfolio(portfolio_id: int) -> Portfolio:
+def delete_portfolio(portfolio_id: int, force: bool = False) -> Portfolio:
     portfolio = db.session.query(Portfolio).filter_by(id=portfolio_id).one_or_none()
     if not portfolio:
         raise PortfolioOperationError(f'Portfolio {portfolio_id} not found')
-    if any((getattr(investment, 'quantity', 0) or 0) > 0 for investment in portfolio.investments or []):
+    if not force and any((getattr(investment, 'quantity', 0) or 0) > 0 for investment in portfolio.investments or []):
         raise UnsupportedPortfolioOperationError(
             f'Portfolio "{portfolio.name}" cannot be deleted while it still contains holdings.'
         )

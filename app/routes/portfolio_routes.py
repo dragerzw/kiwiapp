@@ -73,7 +73,7 @@ def get_all_portfolios():
 
         include_quotes = _should_include_quotes()
         
-        if is_admin:
+        if is_admin_user:
             portfolios = portfolio_service.get_all_portfolios()
         else:
             user = user_service.get_user_by_username(g.username)
@@ -206,7 +206,7 @@ def delete_portfolio(portfolio_id):
             logger.debug('No access for user: %s', g.username)
             error_response = ErrorResponse(error='Only the Owner (or an Admin) can delete this portfolio', code=403)
             return jsonify(error_response.model_dump()), 403
-        portfolio_service.delete_portfolio(portfolio_id)
+        portfolio_service.delete_portfolio(portfolio_id, force=is_admin_user)
         db.session.commit()
         logger.debug('Portfolio deleted and committed: %s', portfolio_id)
         return jsonify({'message': 'Portfolio deleted successfully'}), 200
