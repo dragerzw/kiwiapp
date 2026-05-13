@@ -27,7 +27,11 @@ class Portfolio(db.Model):
 
     user: Mapped['User'] = relationship('User', foreign_keys=[owner], back_populates='portfolios', lazy='selectin')
 
-    transactions: Mapped[List['Transaction']] = relationship('Transaction', back_populates='portfolio', lazy='selectin', cascade='all, delete-orphan')
+    # Do not cascade delete transactions when a portfolio is removed. Use DB FK ON DELETE SET NULL
+    # so historical transactions remain available at the user/account level.
+    transactions: Mapped[List['Transaction']] = relationship(
+        'Transaction', back_populates='portfolio', lazy='selectin', passive_deletes=True
+    )
 
     accesses: Mapped[List['PortfolioAccess']] = relationship('PortfolioAccess', back_populates='portfolio', lazy='selectin', cascade='all, delete-orphan')
 

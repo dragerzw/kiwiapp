@@ -15,7 +15,11 @@ class Transaction(db.Model):
     __tablename__ = 'transaction'
     transaction_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(30), ForeignKey('user.username'), nullable=False)
-    portfolio_id: Mapped[int] = mapped_column(Integer, ForeignKey('portfolio.id'), nullable=False)
+    # Allow portfolio_id to be nullable so transactions persist if a portfolio is deleted.
+    # Use ON DELETE SET NULL on the FK so the DB will null the reference when the portfolio is removed.
+    portfolio_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey('portfolio.id', ondelete='SET NULL'), nullable=True
+    )
     ticker: Mapped[str] = mapped_column(String(30), nullable=False)
     transaction_type: Mapped[str] = mapped_column(String(10), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -36,7 +40,7 @@ class Transaction(db.Model):
             self,
             *,
             username: str,
-            portfolio_id: int,
+            portfolio_id: int | None,
             ticker: str,
             transaction_type: str,
             quantity: int,

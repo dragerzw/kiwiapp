@@ -1,10 +1,15 @@
 :root {
-  color: #102a43;
+  --text-primary: #0f1724;
+  --muted: #586b77;
+  --accent: #0ea5a4;
+  --accent-2: #06b6d4;
+  --gold: #ffd166;
+  color: var(--text-primary);
   background:
     radial-gradient(circle at top left, rgba(254, 240, 138, 0.32), transparent 28%),
     radial-gradient(circle at top right, rgba(191, 219, 254, 0.4), transparent 34%),
     linear-gradient(180deg, #f8f4ea 0%, #eef5f6 100%);
-  font-family: "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
+  font-family: "Inter", "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
 }
 
 *, *::before, *::after {
@@ -22,8 +27,8 @@ body {
     radial-gradient(circle at top left, rgba(254, 240, 138, 0.32), transparent 28%),
     radial-gradient(circle at top right, rgba(191, 219, 254, 0.4), transparent 34%),
     linear-gradient(180deg, #f8f4ea 0%, #eef5f6 100%);
-  color: #102a43;
-  font-family: "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
+  color: var(--text-primary);
+  font-family: "Inter", "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
 }
 
 button,
@@ -35,7 +40,7 @@ select {
 
 h1, h2, h3, h4, h5 {
   margin: 0;
-  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-family: 'Merriweather', 'Playfair Display', "Iowan Old Style", "Palatino Linotype", Georgia, serif;
   letter-spacing: -0.02em;
 }
 
@@ -209,26 +214,30 @@ a {
 }
 
 .lp-logo-text {
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   font-weight: 700;
-  color: #d9f99d;
-  letter-spacing: 0.08em;
-  text-transform: lowercase;
+  color: var(--gold);
+  letter-spacing: 0.06em;
+  text-transform: none;
 }
 
 .lp-headline {
-  font-size: 2.7rem;
-  font-weight: 800;
-  line-height: 1.08;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1.05;
   color: #f8fafc;
   margin-bottom: 1.25rem;
+  letter-spacing: -0.02em;
+  text-rendering: optimizeLegibility;
 }
 
 .lp-subline {
-  font-size: 1rem;
-  color: #dbeafe;
+  font-size: 1.03rem;
+  color: rgba(255,255,255,0.9);
   line-height: 1.7;
   margin-bottom: 2rem;
+  font-weight: 400;
 }
 
 .lp-features {
@@ -273,11 +282,12 @@ a {
 .lp-card {
   width: 100%;
   max-width: 420px;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(6px);
+  border-radius: 20px;
   padding: 2.5rem 2rem;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  box-shadow: 0 26px 60px rgba(15, 23, 42, 0.14);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.12);
   text-align: center;
 }
 
@@ -285,12 +295,12 @@ a {
   width: 3.25rem;
   height: 3.25rem;
   margin: 0 auto 1rem;
-  border-radius: 18px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #d9f99d, #99f6e4);
-  color: #123c4a;
+  background: linear-gradient(135deg, var(--gold), #99f6e4);
+  color: #0f1724;
   font-size: 1.2rem;
   font-weight: 800;
 }
@@ -317,19 +327,20 @@ a {
 
 .lp-signin-btn {
   width: 100%;
-  padding: 0.9rem 1.5rem;
-  background: linear-gradient(135deg, #147d64, #0f766e);
+  padding: 0.95rem 1.5rem;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
   color: #ffffff;
   border: none;
-  border-radius: 14px;
+  border-radius: 12px;
   font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 12px 24px rgba(15, 118, 110, 0.22);
+  box-shadow: 0 14px 30px rgba(14, 165, 164, 0.18);
 }
 
 .lp-signin-btn:hover {
-  background: linear-gradient(135deg, #0f766e, #0b5d56);
+  filter: brightness(1.03);
+  transform: translateY(-2px);
 }
 
 .navbar {
