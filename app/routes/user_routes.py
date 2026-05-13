@@ -9,6 +9,22 @@ from sqlalchemy.exc import IntegrityError
 from app.schemas.error_schemas import ErrorResponse
 
 user_bp = Blueprint('user', __name__)
+INTERNAL_SERVER_ERROR_MESSAGE = 'Internal server error'
+
+
+def _get_normalized_groups(claims: dict) -> list[str]:
+    groups = claims.get('cognito:groups', []) or claims.get('groups', [])
+    if isinstance(groups, str):
+        return [groups]
+    if isinstance(groups, (list, tuple, set)):
+        return [group for group in groups if isinstance(group, str)]
+    return []
+
+
+def _is_admin(claims: dict) -> bool:
+    admin_group_names = {'Admins', 'Admin', 'Administrators', 'Administrator'}
+    groups = _get_normalized_groups(claims)
+    return any(group in admin_group_names for group in groups)
 
 
 @user_bp.route('/', methods=['GET'])
@@ -16,17 +32,16 @@ user_bp = Blueprint('user', __name__)
 def get_users():
     try:
         claims = g.user.get('claims', {})
-        # Extremely robust group check
-        groups = claims.get('cognito:groups', []) or claims.get('groups', [])
-        if isinstance(groups, str): # Handle cases where it might be a single string
-            groups = [groups]
-            
-        admin_group_names = {'Admins', 'Admin', 'Administrators', 'Administrator'}
-        is_admin = any(g in admin_group_names for g in groups)
-        
-        current_app.logger.info(f'[AUTH DIAGNOSTIC] User: {g.username} | is_admin: {is_admin} | Groups found: {groups}')
-        if not is_admin:
-             current_app.logger.info(f'[AUTH DIAGNOSTIC] Full Claims: {claims}')
+        is_admin = _is_admin(claims)
+
+        if current_app.config.get('ENABLE_DEBUG_AUTH_DIAGNOSTICS', False):
+            current_app.logger.debug(
+                'Auth diagnostic: user=%s is_admin=%s groups=%s token_use=%s',
+                g.username,
+                is_admin,
+                _get_normalized_groups(claims),
+                claims.get('token_use'),
+            )
 
         if is_admin:
             users = user_service.get_all_users()
@@ -41,7 +56,7 @@ def get_users():
         import traceback
         print('Error in get_users:', e)
         traceback.print_exc()
-        error_response = ErrorResponse(error='Internal server error', code=500)
+        error_response = ErrorResponse(error=INTERNAL_SERVER_ERROR_MESSAGE, code=500)
         return jsonify(error_response.model_dump()), 500
 
 
@@ -61,7 +76,7 @@ def get_user(username):
         import traceback
         print('Error in get_user:', e)
         traceback.print_exc()
-        error_response = ErrorResponse(error='Internal server error', code=500)
+        error_response = ErrorResponse(error=INTERNAL_SERVER_ERROR_MESSAGE, code=500)
         return jsonify(error_response.model_dump()), 500
 
 
@@ -90,8 +105,7 @@ def update_balance():
     req_data = UserUpdateBalanceRequest.model_validate(request.get_json(silent=True) or {})
     try:
         claims = g.user.get('claims', {})
-        groups = claims.get('cognito:groups', [])
-        is_admin = 'Admins' in groups
+        is_admin = _is_admin(claims)
 
         if req_data.username != g.username and not is_admin:
             error_response = ErrorResponse(error='Unauthorized to update this user balance', code=403)
@@ -107,7 +121,7 @@ def update_balance():
         import traceback
         print('Error in update_balance:', e)
         traceback.print_exc()
-        error_response = ErrorResponse(error='Internal server error', code=500)
+        error_response = ErrorResponse(error=INTERNAL_SERVER_ERROR_MESSAGE, code=500)
         return jsonify(error_response.model_dump()), 500
 
 
@@ -116,8 +130,7 @@ def update_balance():
 def delete_user(username):
     try:
         claims = g.user.get('claims', {})
-        groups = claims.get('cognito:groups', [])
-        is_admin = 'Admins' in groups
+        is_admin = _is_admin(claims)
 
         if g.username != username and not is_admin:
             error_response = ErrorResponse(error='Unauthorized to delete this user', code=403)
@@ -136,7 +149,7 @@ def delete_user(username):
         import traceback
         print('Error in delete_user:', e)
         traceback.print_exc()
-        error_response = ErrorResponse(error='Internal server error', code=500)
+        error_response = ErrorResponse(error=INTERNAL_SERVER_ERROR_MESSAGE, code=500)
         return jsonify(error_response.model_dump()), 500
 
 

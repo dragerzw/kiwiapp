@@ -13,12 +13,11 @@ class ErrorResponse(BaseModel):
     request_id: str = ''
 
 
-def _safe_claim_diagnostics(token: str) -> Dict:
-    try:
-        claims = jwt.get_unverified_claims(token)
-    except JWTError:
-        claims = {}
+class CognitoTokenValidationError(Exception):
+    pass
 
+
+def _safe_header_diagnostics(token: str) -> Dict:
     try:
         header = jwt.get_unverified_header(token)
     except JWTError:
@@ -26,11 +25,6 @@ def _safe_claim_diagnostics(token: str) -> Dict:
 
     return {
         'kid': header.get('kid'),
-        'iss_present': 'iss' in claims,
-        'aud_present': 'aud' in claims,
-        'client_id_present': 'client_id' in claims,
-        'token_use': claims.get('token_use'),
-        'sub_present': 'sub' in claims,
     }
 
 def _get_session() -> requests.Session:
@@ -101,7 +95,7 @@ class CognitoTokenValidator:
     def validate_token(self, token: str) -> Dict:
         signing_key = self._get_signing_key(token)
         if not signing_key:
-            raise Exception('Unable to find matching signing key')
+            raise CognitoTokenValidationError('Unable to find matching signing key')
         try:
             claims = jwt.decode(
                 token,
@@ -118,11 +112,11 @@ class CognitoTokenValidator:
             )
             return self._validate_verified_claims(claims)
         except ExpiredSignatureError:
-            raise Exception('Token has expired')
+            raise CognitoTokenValidationError('Token has expired')
         except JWTClaimsError as e:
-            raise Exception(f'Invalid claims in token (check audience/issuer): {str(e)}')
+            raise CognitoTokenValidationError(f'Invalid claims in token (check audience/issuer): {str(e)}')
         except JWTError as e:
-            raise Exception(f'Token validation failed: {str(e)}')
+            raise CognitoTokenValidationError(f'Token validation failed: {str(e)}')
 
 
 def get_token_from_header():
@@ -134,53 +128,74 @@ def get_token_from_header():
         return None
     return parts[1]
 
+
+def _extract_username_from_claims(claims: Dict) -> str:
+    return (claims.get('cognito:username') or claims.get('username') or '').strip()
+
+
+def _maybe_provision_user_from_claims(username: str, claims: Dict) -> None:
+    if not current_app.config.get('ENABLE_AUTH_JIT_PROVISIONING', False):
+        return
+
+    from app.service import user_service
+    from app.db import db
+
+    try:
+        user = user_service.get_user_by_username(username)
+        if user is None:
+            current_app.logger.info('Provisioning new user for Cognito username: %s', username)
+            user_service.create_user(
+                username=username,
+                password=secrets.token_urlsafe(24),
+                firstname=claims.get('given_name') or claims.get('name') or 'User',
+                lastname=claims.get('family_name') or '',
+                balance=1000.0,
+            )
+            db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        current_app.logger.info('User %s already exists, skipping JIT provisioning', username)
+
+
+def _auth_error_response(message: str, code: int):
+    from app.schemas.error_schemas import ErrorResponse
+    return jsonify(ErrorResponse(error=message, code=code).model_dump()), code
+
+
+def _log_auth_validation_failure(token: str, error: Exception) -> None:
+    if current_app.config.get('ENABLE_DEBUG_AUTH_DIAGNOSTICS', False):
+        current_app.logger.warning(
+            'Auth validation failed: %s | diagnostics=%s',
+            str(error),
+            _safe_header_diagnostics(token),
+        )
+    else:
+        current_app.logger.warning('Auth validation failed: %s', str(error))
+
 def require_auth(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         token = get_token_from_header()
         if not token:
-            from app.schemas.error_schemas import ErrorResponse
-            return jsonify(ErrorResponse(error="Missing authentication Token", code=401).model_dump()), 401
+            return _auth_error_response("Missing authentication Token", 401)
         validator = current_app.config.get('COGNITO_VALIDATOR')
         if not validator:
-            from app.schemas.error_schemas import ErrorResponse
-            return jsonify(ErrorResponse(error="Missing cognito token validator in the app configuration.", code=500).model_dump()), 500
+            return _auth_error_response("Missing cognito token validator in the app configuration.", 500)
         try:
             claims = validator.validate_token(token)
-            username = claims.get('cognito:username') or claims.get('username')
+            username = _extract_username_from_claims(claims)
+            if not username:
+                raise CognitoTokenValidationError('Token missing username claim')
 
-            if current_app.config.get('ENABLE_AUTH_JIT_PROVISIONING', False):
-                from app.service import user_service
-                from app.db import db
-
-                try:
-                    user = user_service.get_user_by_username(username)
-                    if user is None:
-                        current_app.logger.info('Provisioning new user for Cognito username: %s', username)
-                        user_service.create_user(
-                            username=username,
-                            password=secrets.token_urlsafe(24),
-                            firstname=claims.get('given_name') or claims.get('name') or 'User',
-                            lastname=claims.get('family_name') or '',
-                            balance=1000.0,
-                        )
-                        db.session.commit()
-                except IntegrityError:
-                    db.session.rollback()
-                    current_app.logger.info('User %s already exists, skipping JIT provisioning', username)
+            _maybe_provision_user_from_claims(username, claims)
 
             g.user = {'user_id': claims.get('sub'), 'username': username, 'claims': claims}
             g.username = username
+        except CognitoTokenValidationError as e:
+            _log_auth_validation_failure(token, e)
+            return _auth_error_response("Token validation failed: " + str(e), 401)
         except Exception as e:
-            if current_app.config.get('ENABLE_DEBUG_AUTH_DIAGNOSTICS', False):
-                current_app.logger.warning(
-                    'Auth validation failed: %s | diagnostics=%s',
-                    str(e),
-                    _safe_claim_diagnostics(token),
-                )
-            else:
-                current_app.logger.warning('Auth validation failed: %s', str(e))
-            from app.schemas.error_schemas import ErrorResponse
-            return jsonify(ErrorResponse(error="Token validation failed: " + str(e), code=401).model_dump()), 401
+            current_app.logger.warning('Unexpected auth failure: %s', str(e))
+            return _auth_error_response("Token validation failed: " + str(e), 401)
         return f(*args, **kwargs)
     return decorated_function
