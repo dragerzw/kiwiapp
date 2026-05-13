@@ -22,7 +22,7 @@ export default function Navbar({ onSignOut, isAdmin, showAdminView, onToggleAdmi
             </span>
           </div>
           {isAdmin && (
-            <button className="btn btn-outline" onClick={onToggleAdmin} style={{ marginRight: '0.5rem' }}>
+            <button className="btn btn-outline margin-right-small" onClick={onToggleAdmin}>
               {showAdminView ? "User View" : "Admin View"}
             </button>
           )}

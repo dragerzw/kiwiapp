@@ -58,7 +58,7 @@ const CreatePortfolioModal = ({ onClose, onSuccess }) => {
     >
       <form onSubmit={handleSubmit}>
         {error ? (
-          <div className="status-banner status-banner-error" role="alert" style={{marginBottom: '1rem'}}>
+          <div className="status-banner status-banner-error banner-margin-bottom" role="alert">
             {error}
           </div>
         ) : null}
@@ -85,7 +85,7 @@ const CreatePortfolioModal = ({ onClose, onSuccess }) => {
             rows="3"
             value={description}
           />
-          <p className="modal-note" style={{marginTop: '0.75rem', fontSize: '0.8rem'}}>
+          <p className="modal-note portfolio-modal-note">
             Portfolios can be actively traded upon creation. For security, deletion is disabled while active positions remain.
           </p>
         </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { api } from "../api";
 import BaseModal from "./BaseModal";
 import "./AdminDashboard.css";
@@ -15,11 +15,7 @@ export default function AdminDashboard({ token }) {
   const [modalData, setModalData] = useState(null);
   const [inputValue, setInputValue] = useState("");
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
       const [u, p] = await Promise.all([
@@ -34,7 +30,11 @@ export default function AdminDashboard({ token }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const closeModals = () => {
     setActiveModal(null);
@@ -209,7 +209,7 @@ export default function AdminDashboard({ token }) {
           }
         >
           <p>Are you sure you want to delete user <strong>{modalData.username}</strong>? This will remove all their data permanently.</p>
-          {error && <div className="status-banner status-banner-error" style={{marginTop: '1rem'}}>{error}</div>}
+          {error && <div className="status-banner status-banner-error banner-margin-top">{error}</div>}
         </BaseModal>
       )}
 
@@ -237,7 +237,7 @@ export default function AdminDashboard({ token }) {
               autoFocus
             />
           </div>
-          {error && <div className="status-banner status-banner-error" style={{marginTop: '1rem'}}>{error}</div>}
+          {error && <div className="status-banner status-banner-error banner-margin-top">{error}</div>}
         </BaseModal>
       )}
 
@@ -256,7 +256,7 @@ export default function AdminDashboard({ token }) {
           }
         >
           <p>Are you sure you want to delete portfolio <strong>{modalData.name}</strong> belonging to <strong>{modalData.owner}</strong>?</p>
-          {error && <div className="status-banner status-banner-error" style={{marginTop: '1rem'}}>{error}</div>}
+          {error && <div className="status-banner status-banner-error banner-margin-top">{error}</div>}
         </BaseModal>
       )}
     </div>

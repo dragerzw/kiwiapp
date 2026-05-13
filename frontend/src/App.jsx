@@ -4,7 +4,6 @@ import { useAuth } from "./AuthContext";
 import Dashboard from "./components/Dashboard";
 import LoginPage from "./components/LoginPage";
 import Navbar from "./components/Navbar";
-import DebugOverlay from "./components/DebugOverlay";
 import AdminDashboard from "./components/AdminDashboard";
 import { clearStoredAuthState, LOGOUT_MARKER_KEY, cognitoLogoutUrl, SIGNED_OUT_PATH } from "./authConfig";
 
@@ -89,7 +88,6 @@ function App() {
         ) : (
           <Dashboard />
         )}
-        <DebugOverlay auth={auth} />
       </>
     );
   }

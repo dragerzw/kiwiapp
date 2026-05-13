@@ -12,7 +12,7 @@ function LoginPage(props) {
       <div className="lp-hero">
         <div className="lp-hero-content">
           <div className="lp-logo">
-            <span className="lp-logo-badge" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span className="lp-logo-badge flex-center">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="20" x2="18" y2="10"></line>
                 <line x1="12" y1="20" x2="12" y2="4"></line>
@@ -35,7 +35,7 @@ function LoginPage(props) {
 
       <div className="lp-panel">
         <div className="lp-card">
-          <div className="lp-card-logo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="lp-card-logo flex-center">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="20" x2="18" y2="10"></line>
               <line x1="12" y1="20" x2="12" y2="4"></line>
@@ -53,7 +53,7 @@ function LoginPage(props) {
           </p>
 
           {errorMessage ? (
-            <div className="status-banner status-banner-error" role="alert" style={{ marginBottom: "1.5rem" }}>
+            <div className="status-banner status-banner-error banner-margin-bottom-large" role="alert">
               {errorMessage}
             </div>
           ) : null}

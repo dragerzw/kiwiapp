@@ -739,3 +739,13 @@ select.form-control {
     align-items: stretch;
   }
 }
+
+/* Extracted Banner/Margin Classes */
+.banner-margin-top { margin-top: 1rem; }
+.banner-margin-bottom { margin-bottom: 1rem; }
+.banner-margin-bottom-large { margin-bottom: 1.5rem; }
+.portfolio-modal-note { margin-top: 0.75rem; font-size: 0.8rem; }
+.margin-right-small { margin-right: 0.5rem; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+
+

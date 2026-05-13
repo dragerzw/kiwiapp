@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "../AuthContext";
 import { api } from "../api";
 
@@ -23,7 +23,7 @@ export default function Dashboard() {
   const [portfolioToDelete, setPortfolioToDelete] = useState(null);
   const [isTrading, setIsTrading] = useState(false);
 
-  const fetchPortfolios = async () => {
+  const fetchPortfolios = useCallback(async () => {
     try {
       setError(null);
       const data = await api.getPortfolios(authToken, { includeQuotes: false });
@@ -35,16 +35,16 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [authToken]);
 
   useEffect(() => {
     if (isAuthenticated && authToken) {
       setLoading(true);
       fetchPortfolios();
     }
-  }, [isAuthenticated, authToken]);
+  }, [isAuthenticated, authToken, fetchPortfolios]);
 
-  const fetchDetails = async (id) => {
+  const fetchDetails = useCallback(async (id) => {
     try {
       setError(null);
       const details = await api.getPortfolioDetails(id, authToken);
@@ -57,9 +57,9 @@ export default function Dashboard() {
       setQuoteError(null);
       setError(e.message);
     }
-  };
+  }, [authToken]);
 
-  const refreshPortfolioData = async (id) => {
+  const refreshPortfolioData = useCallback(async (id) => {
     try {
       setError(null);
       const details = await api.getPortfolioDetails(id, authToken);
@@ -71,7 +71,7 @@ export default function Dashboard() {
       setQuoteError(null);
       setError(e.message);
     }
-  };
+  }, [authToken]);
 
   const handleCreate = () => {
     setShowCreateModal(true);
@@ -197,7 +197,7 @@ export default function Dashboard() {
                   </button>
                   {portfolio.access_role === "Owner" && (
                     <div className="portfolio-card-footer">
-                      <div className="portfolio-card-actions" style={{ justifyContent: "flex-end" }}>
+                      <div className="portfolio-card-actions portfolio-card-actions-end">
                         <button
                           className="btn btn-danger btn-compact"
                           onClick={(e) => handleDeleteClick(portfolio, e)}
@@ -211,7 +211,7 @@ export default function Dashboard() {
                 </div>
               ))}
               {portfolios.length === 0 && (
-                <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
+                <div className="empty-state empty-state-full-width">
                   <h3 className="empty-state-title">No Portfolios Found</h3>
                   <p className="empty-state-copy">Create a portfolio to begin tracking your investments.</p>
                 </div>
@@ -224,13 +224,13 @@ export default function Dashboard() {
       {/* DETAILED VIEW (Show when a portfolio IS selected) */}
       {selectedPortfolio && (
         <div className="portfolio-detail-view">
-          <header className="detail-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <header className="detail-header detail-header-flex">
+            <div className="detail-header-title-group">
               <button className="btn btn-outline btn-compact" onClick={closeDetailView}>← Back</button>
-              <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 600 }}>{selectedPortfolio.name}</h2>
+              <h2 className="detail-header-title">{selectedPortfolio.name}</h2>
               <span className="role-pill">{selectedPortfolio.access_role}</span>
             </div>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <div className="detail-header-actions">
               <button className="btn btn-outline" onClick={() => refreshPortfolioData(selectedPortfolio.id)}>Refresh Quotes</button>
               {canTradeSelectedPortfolio && (
                 <button className="btn btn-primary" onClick={() => setIsTrading(!isTrading)}>
@@ -244,7 +244,7 @@ export default function Dashboard() {
           {!error && quoteError && <div className="status-banner status-banner-error">{quoteError}</div>}
 
           {isTrading && canTradeSelectedPortfolio && (
-            <section className="trade-view glass" style={{ marginBottom: '2rem' }}>
+            <section className="trade-view glass trade-view-section">
               <div className="section-header">
                 <h3>Execute Order</h3>
               </div>
@@ -257,16 +257,16 @@ export default function Dashboard() {
             </section>
           )}
 
-          <div className="detail-split-layout" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem' }}>
+          <div className="detail-split-layout detail-split-layout-grid">
             
             {/* Holdings Column */}
-            <section className="holdings-view glass" style={{ padding: '1.5rem', margin: 0 }}>
-              <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h3 style={{ margin: 0 }}>Current Holdings</h3>
-                <span style={{ fontWeight: 600, fontSize: '1.25rem', color: '#10b981' }}>{formatPortfolioValue(selectedPortfolio)}</span>
+            <section className="holdings-view glass holdings-view-section">
+              <div className="section-header section-header-flex">
+                <h3 className="section-header-title">Current Holdings</h3>
+                <span className="holdings-total-value">{formatPortfolioValue(selectedPortfolio)}</span>
               </div>
               <div className="table-container">
-                <table style={{ margin: 0 }}>
+                <table className="table-no-margin">
                   <thead>
                     <tr>
                       <th>Ticker</th>
@@ -293,12 +293,12 @@ export default function Dashboard() {
             </section>
 
             {/* Transactions Column */}
-            <section className="transactions-view glass" style={{ padding: '1.5rem', margin: 0 }}>
-              <div className="section-header" style={{ marginBottom: '1rem' }}>
-                <h3 style={{ margin: 0 }}>Recent Transactions</h3>
+            <section className="transactions-view glass transactions-view-section">
+              <div className="section-header transactions-header">
+                <h3 className="section-header-title">Recent Transactions</h3>
               </div>
               <div className="table-container">
-                <table style={{ margin: 0 }}>
+                <table className="table-no-margin">
                   <thead>
                     <tr>
                       <th>Date</th>

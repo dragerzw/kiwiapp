@@ -38,7 +38,7 @@ const DeletePortfolioModal = ({ portfolio, authToken, onClose, onSuccess }) => {
       </p>
       
       {error ? (
-        <div className="status-banner status-banner-error" role="alert" style={{marginTop: '1rem'}}>
+        <div className="status-banner status-banner-error banner-margin-top" role="alert">
           {error}
         </div>
       ) : null}
