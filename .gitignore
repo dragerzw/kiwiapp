@@ -6,7 +6,6 @@ __pycache__/
 notes/
 .pytest_cache/
 .env
-app.*
 local/
 .ruff*
 test_output.txt

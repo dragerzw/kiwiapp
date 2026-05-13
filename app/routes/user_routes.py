@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request, g
+from flask import Blueprint, jsonify, request, g, current_app
 
 import app.service.transaction_service as transaction_service
 import app.service.user_service as user_service

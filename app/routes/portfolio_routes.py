@@ -1,5 +1,5 @@
 
-from flask import Blueprint, jsonify, request, g
+from flask import Blueprint, jsonify, request, g, current_app
 import logging
 
 logger = logging.getLogger(__name__)
@@ -66,9 +66,13 @@ def _enrich_portfolio(portfolio_dict: dict) -> dict:
 def get_all_portfolios():
     try:
         claims = g.user.get('claims', {})
-        # Support both 'cognito:groups' and 'groups' keys
+        # Extremely robust group check
         groups = claims.get('cognito:groups', []) or claims.get('groups', [])
-        is_admin = 'Admins' in groups
+        if isinstance(groups, str):
+            groups = [groups]
+            
+        admin_group_names = {'Admins', 'Admin', 'Administrators', 'Administrator'}
+        is_admin = any(g in admin_group_names for g in groups)
 
         include_quotes = _should_include_quotes()
         
@@ -199,8 +203,12 @@ def delete_portfolio(portfolio_id):
         logger.debug('delete_portfolio called for id: %s', portfolio_id)
         
         claims = g.user.get('claims', {})
-        groups = claims.get('cognito:groups', [])
-        is_admin = 'Admins' in groups
+        groups = claims.get('cognito:groups', []) or claims.get('groups', [])
+        if isinstance(groups, str):
+            groups = [groups]
+            
+        admin_group_names = {'Admins', 'Admin', 'Administrators', 'Administrator'}
+        is_admin = any(g in admin_group_names for g in groups)
 
         if not portfolio_service.has_portfolio_access(portfolio_id, g.username, ['Owner']) and not is_admin:
             logger.debug('No access for user: %s', g.username)
