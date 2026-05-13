@@ -280,8 +280,8 @@ export default function Dashboard() {
                       <tr key={inv.ticker}>
                         <td><strong>{inv.ticker}</strong></td>
                         <td>{inv.quantity}</td>
-                        <td className="numeric-cell">${inv.current_price?.toFixed(2) || "---"}</td>
-                        <td className="numeric-cell">${inv.total_value?.toFixed(2) || "---"}</td>
+                        <td className="numeric-cell">{inv.current_price != null ? `$${inv.current_price.toFixed(2)}` : "---"}</td>
+                        <td className="numeric-cell">{inv.total_value != null ? `$${inv.total_value.toFixed(2)}` : "---"}</td>
                       </tr>
                     ))}
                     {(!selectedPortfolio.investments || selectedPortfolio.investments.length === 0) && (

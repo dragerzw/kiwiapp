@@ -35,14 +35,17 @@ def _get_admin_status_from_claims(claims: dict) -> bool:
     
     Handles multiple variations:
     - cognito:groups or groups claim keys
-    - String or list values
+    - String, list, or None values (graceful fallback)
     - Multiple admin group name variations
     """
-    groups = claims.get('cognito:groups', []) or claims.get('groups', [])
+    groups = claims.get('cognito:groups') or claims.get('groups') or []
     if isinstance(groups, str):
         groups = [groups]
+    elif not isinstance(groups, list):
+        groups = []
+        
     admin_group_names = {'Admins', 'Admin', 'Administrators', 'Administrator'}
-    return any(g in admin_group_names for g in groups)
+    return any(isinstance(g, str) and g in admin_group_names for g in groups)
 
 
 def _enrich_portfolio(portfolio_dict: dict) -> dict:

@@ -31,9 +31,12 @@ export class ApiError extends Error {
 
 const request = async (endpoint, options = {}, token = null) => {
   const headers = {
-    "Content-Type": "application/json",
     ...options.headers,
   };
+
+  if (options.body && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
 
   if (token) {
     headers.Authorization = `Bearer ${token}`;

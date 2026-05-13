@@ -26,7 +26,7 @@ class Config:
     SEED_DEFAULT_DEV_USER = _env_truthy('SEED_DEFAULT_DEV_USER')
     ENABLE_AUTH_JIT_PROVISIONING = _env_truthy('ENABLE_AUTH_JIT_PROVISIONING')
     ENABLE_DEBUG_AUTH_DIAGNOSTICS = _env_truthy('ENABLE_DEBUG_AUTH_DIAGNOSTICS')
-    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', '*')
+    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'http://localhost:5173')
 
 
 class TestConfig(Config):
