@@ -1,6 +1,6 @@
 # Database Migrations
 
-This project uses [Alembic](https://alembic.sqlalchemy.org/) to manage database schema migrations.
+This project includes Alembic migration scripts in `migrations/versions/`, but the full Alembic configuration (e.g., `alembic.ini` and `env.py`) is not currently tracked in the repository.
 
 ## Applying Migrations
 
@@ -11,7 +11,15 @@ To apply existing migrations (like the schema change made to `Transaction.portfo
    pip install alembic
    ```
 
-2. Run the upgrade command to apply all pending migrations:
+2. Initialize your local Alembic setup:
+   ```bash
+   alembic init migrations
+   ```
+   *(Note: Do not overwrite the existing `migrations/versions/` directory if prompted).*
+
+3. Configure `migrations/env.py` and `alembic.ini` to connect to your local database instance (e.g., your local `dev.db`).
+
+4. Run the upgrade command to apply the pending migrations:
    ```bash
    alembic upgrade head
    ```

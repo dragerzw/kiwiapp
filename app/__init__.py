@@ -62,6 +62,11 @@ def _configure_cognito_validator(app):
     region = app.config.get('COGNITO_REGION')
     user_pool_id = app.config.get('COGNITO_USER_POOL_ID')
     app_client_id = app.config.get('COGNITO_APP_CLIENT_ID')
+    
+    if not user_pool_id or not app_client_id:
+        app.logger.warning("Cognito User Pool ID or App Client ID missing; skipping Cognito validator setup.")
+        return
+        
     app.config['COGNITO_VALIDATOR'] = CognitoTokenValidator(region, user_pool_id, app_client_id)
 
 
