@@ -6,12 +6,7 @@ import requests
 from flask import current_app, jsonify, request, g
 from jose import jwt
 from jose.exceptions import ExpiredSignatureError, JWTClaimsError, JWTError
-from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
-
-class ErrorResponse(BaseModel):
-    error_message: str
-    request_id: str = ''
 
 
 class CognitoTokenValidationError(Exception):

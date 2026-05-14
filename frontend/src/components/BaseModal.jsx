@@ -1,12 +1,22 @@
+import { useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import "./BaseModal.css";
 
 export default function BaseModal({ title, children, onClose, footer }) {
+  const dialogRef = useRef(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) {
+      dialog.showModal();
+    }
+  }, []);
+
   return (
     <dialog
+      ref={dialogRef}
       className="base-modal-backdrop"
       onCancel={onClose}
-      open
     >
       <div className="base-modal-content" aria-label={title}>
         <div className="base-modal-header">
