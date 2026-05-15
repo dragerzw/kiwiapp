@@ -85,11 +85,7 @@ export default function Dashboard() {
 
   const handleDeleteClick = (portfolio, e) => {
     if (e) e.stopPropagation();
-    if ((portfolio.investments_count || 0) > 0) {
-      setError(`Cannot delete "${portfolio.name}": Sell all holdings first.`);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
+    setError(null);
     setPortfolioToDelete(portfolio);
   };
 
@@ -163,53 +159,55 @@ export default function Dashboard() {
             </button>
           </header>
 
-          {error && <div className="status-banner status-banner-error">{error}</div>}
+          {error && <div className="status-banner status-banner-error" role="alert">{error}</div>}
 
           <main className="dashboard-content">
             <div className="portfolio-grid">
-              {portfolios.map((portfolio) => (
-                <div key={portfolio.id} className="portfolio-card">
-                  <button
-                    className="portfolio-card-surface"
-                    onClick={() => fetchDetails(portfolio.id)}
-                    type="button"
-                  >
-                    <div className="portfolio-card-body">
-                      <div className="portfolio-card-header-row">
-                        <div className="portfolio-icon-wrapper">
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
-                          </svg>
+              {portfolios.map((portfolio) => {
+                return (
+                  <div key={portfolio.id} className="portfolio-card">
+                    <button
+                      className="portfolio-card-surface"
+                      onClick={() => fetchDetails(portfolio.id)}
+                      type="button"
+                    >
+                      <div className="portfolio-card-body">
+                        <div className="portfolio-card-header-row">
+                          <div className="portfolio-icon-wrapper">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                            </svg>
+                          </div>
+                          <div className="portfolio-card-pills">
+                            <span className="role-pill">{portfolio.access_role || "Viewer"}</span>
+                          </div>
                         </div>
-                        <div className="portfolio-card-pills">
-                          <span className="role-pill">{portfolio.access_role || "Viewer"}</span>
+                        <h4>{portfolio.name}</h4>
+                        <p>{portfolio.description || "Active investment strategy"}</p>
+                        <div className="portfolio-card-value-section">
+                          <div className="portfolio-card-label">Net Asset Value</div>
+                          <div className="portfolio-card-value">
+                            {formatPortfolioValue(portfolio)}
+                          </div>
                         </div>
                       </div>
-                      <h4>{portfolio.name}</h4>
-                      <p>{portfolio.description || "Active investment strategy"}</p>
-                      <div className="portfolio-card-value-section">
-                        <div className="portfolio-card-label">Net Asset Value</div>
-                        <div className="portfolio-card-value">
-                          {formatPortfolioValue(portfolio)}
+                    </button>
+                    {portfolio.access_role === "Owner" && (
+                      <div className="portfolio-card-footer">
+                        <div className="portfolio-card-actions portfolio-card-actions-end">
+                          <button
+                            className="btn btn-danger btn-compact"
+                            onClick={(e) => handleDeleteClick(portfolio, e)}
+                            type="button"
+                          >
+                            Delete
+                          </button>
                         </div>
                       </div>
-                    </div>
-                  </button>
-                  {portfolio.access_role === "Owner" && (
-                    <div className="portfolio-card-footer">
-                      <div className="portfolio-card-actions portfolio-card-actions-end">
-                        <button
-                          className="btn btn-danger btn-compact"
-                          onClick={(e) => handleDeleteClick(portfolio, e)}
-                          type="button"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    )}
+                  </div>
+                );
+              })}
               {portfolios.length === 0 && (
                 <div className="empty-state empty-state-full-width">
                   <h3 className="empty-state-title">No Portfolios Found</h3>
@@ -240,8 +238,8 @@ export default function Dashboard() {
             </div>
           </header>
 
-          {error && <div className="status-banner status-banner-error">{error}</div>}
-          {!error && quoteError && <div className="status-banner status-banner-error">{quoteError}</div>}
+          {error && <div className="status-banner status-banner-error" role="alert">{error}</div>}
+          {!error && quoteError && <div className="status-banner status-banner-error" role="alert">{quoteError}</div>}
 
           {isTrading && canTradeSelectedPortfolio && (
             <section className="trade-view glass trade-view-section">
