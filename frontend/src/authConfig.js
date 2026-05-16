@@ -1,9 +1,6 @@
 import { WebStorageStateStore } from "oidc-client-ts";
 
 const DEFAULT_SCOPE = "openid email profile";
-const DEFAULT_REDIRECT_URI = `${globalThis.location.origin}/`;
-const DEFAULT_POST_LOGOUT_REDIRECT_URI = `${globalThis.location.origin}/signed-out`;
-
 export const LOGOUT_MARKER_KEY = "kiwi:pause-auto-signin";
 
 const requireEnv = (name) => {
@@ -16,10 +13,8 @@ const requireEnv = (name) => {
 
 const authority = requireEnv("VITE_COGNITO_AUTHORITY");
 const clientId = requireEnv("VITE_COGNITO_CLIENT_ID");
-const rawRedirectUri = import.meta.env.VITE_COGNITO_REDIRECT_URI || DEFAULT_REDIRECT_URI;
-const redirectUri = rawRedirectUri.endsWith("/") ? rawRedirectUri : `${rawRedirectUri}/`;
-const postLogoutRedirectUri =
-  import.meta.env.VITE_COGNITO_POST_LOGOUT_REDIRECT_URI || DEFAULT_POST_LOGOUT_REDIRECT_URI;
+const redirectUri = requireEnv("VITE_COGNITO_REDIRECT_URI");
+const postLogoutRedirectUri = requireEnv("VITE_COGNITO_POST_LOGOUT_REDIRECT_URI");
 const cognitoDomain = import.meta.env.VITE_COGNITO_DOMAIN?.replace(/\/+$/, "") || null;
 
 export const SIGNED_OUT_PATH = new URL(
