@@ -241,11 +241,12 @@ def test_delete_portfolio_not_found(client, auth_headers, monkeypatch):
     monkeypatch.setattr('app.service.portfolio_service.has_portfolio_access', lambda pid, username, roles: True)
     monkeypatch.setattr(
         'app.service.portfolio_service.delete_portfolio',
-        lambda pid: (_ for _ in ()).throw(PortfolioOperationError(f'Portfolio {pid} not found')),
+        lambda pid, force=False: (_ for _ in ()).throw(PortfolioOperationError(f'Portfolio {pid} not found')),
     )
     response = client.delete('/portfolios/99999', headers=auth_headers)
     assert response.status_code == 404
     assert 'not found' in response.json['error']
+
 
 def test_revoke_access_unauthorized(client, auth_headers, monkeypatch):
     monkeypatch.setattr('app.service.portfolio_service.has_portfolio_access', lambda pid, username, roles: False)

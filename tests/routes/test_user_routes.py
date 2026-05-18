@@ -62,13 +62,39 @@ def test_user_routes_unauthorized(client, auth_headers, monkeypatch):
     assert response.status_code in (403, 401)
 
 def test_get_users_internal_error(monkeypatch, client, auth_headers):
-    monkeypatch.setattr('app.service.user_service.get_user_by_username', lambda username: (_ for _ in ()).throw(Exception('DB fail')))
+    """The admin check in get_users calls is_admin(claims) which returns False for our
+    test user, so the route falls through to user_service.get_user_by_username.
+    We need a mock that succeeds during the auth middleware's JIT provisioning check
+    but fails inside the route handler.  Since auth uses a lazy local import of
+    user_service, patching the module-level function poisons auth too.
+    Instead we monkeypatch the *route* module's local reference to user_service
+    with a thin wrapper that only fails on `get_user_by_username`.
+    """
+    import types
+    import app.service.user_service as real_user_service
+
+    fake_user_service = types.SimpleNamespace(**{
+        attr: getattr(real_user_service, attr) for attr in dir(real_user_service) if not attr.startswith('_')
+    })
+    fake_user_service.get_user_by_username = lambda username: (_ for _ in ()).throw(Exception('DB fail'))
+    fake_user_service.get_all_users = lambda: (_ for _ in ()).throw(Exception('DB fail'))
+
+    monkeypatch.setattr('app.routes.user_routes.user_service', fake_user_service)
     response = client.get('/users/', headers=auth_headers)
     assert response.status_code == 500
     assert 'Internal server error' in response.json['error']
 
 def test_get_user_internal_error(monkeypatch, client, auth_headers):
-    monkeypatch.setattr('app.service.user_service.get_user_by_username', lambda username: (_ for _ in ()).throw(Exception('DB fail')))
+    """Same strategy as above: replace only the route module's user_service reference."""
+    import types
+    import app.service.user_service as real_user_service
+
+    fake_user_service = types.SimpleNamespace(**{
+        attr: getattr(real_user_service, attr) for attr in dir(real_user_service) if not attr.startswith('_')
+    })
+    fake_user_service.get_user_by_username = lambda username: (_ for _ in ()).throw(Exception('DB fail'))
+
+    monkeypatch.setattr('app.routes.user_routes.user_service', fake_user_service)
     response = client.get('/users/admin', headers=auth_headers)
     assert response.status_code == 500
     assert 'Internal server error' in response.json['error']
