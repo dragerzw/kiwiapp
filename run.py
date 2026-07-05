@@ -1,6 +1,7 @@
+import os
+
 from app import create_app
 from app.config import config
-import os
 
 # Use 'development' by default
 env = os.environ.get('FLASK_ENV', 'development')

@@ -1,18 +1,17 @@
-from flask import Blueprint, jsonify, request, g, current_app
+from flask import Blueprint, current_app, g, jsonify, request
 
 import app.service.transaction_service as transaction_service
 import app.service.user_service as user_service
-from app.db import db
-from app.schemas.user_schemas import UserCreateRequest, UserUpdateBalanceRequest
 from app.auth.auth import require_auth
-from sqlalchemy.exc import IntegrityError
+from app.auth.helpers import is_admin
+from app.db import db
 from app.schemas.error_schemas import ErrorResponse
+from app.schemas.user_schemas import UserCreateRequest, UserUpdateBalanceRequest
 
 user_bp = Blueprint('user', __name__)
 INTERNAL_SERVER_ERROR_MESSAGE = 'Internal server error'
 
 
-from app.auth.helpers import is_admin
 
 
 @user_bp.route('/', methods=['GET'])

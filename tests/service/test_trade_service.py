@@ -1,11 +1,18 @@
 import pytest
 from pytest import approx
-from app.models import User, Portfolio
-from app.service.portfolio_service import create_portfolio
-from app.service.trade_service import InsufficientFundsError, execute_purchase_order, TradeExecutionException, liquidate_investment
-from app.service.alpha_vantage_client import AlphaVantageError
-from app.service.user_service import create_user
+
+from app.models import Portfolio, User
 from app.service import transaction_service
+from app.service.alpha_vantage_client import AlphaVantageError
+from app.service.portfolio_service import create_portfolio
+from app.service.trade_service import (
+    InsufficientFundsError,
+    TradeExecutionException,
+    execute_purchase_order,
+    liquidate_investment,
+)
+from app.service.user_service import create_user
+
 
 @pytest.fixture(autouse=True)
 def setup(db_session):
@@ -16,14 +23,12 @@ def setup(db_session):
     db_session.expire_all()
 
     # Create fresh test user
-    from app.service.user_service import create_user
     create_user("user", "secret", "Firstname", "Lastname", 1000.00)
     db_session.commit()
     user = db_session.query(User).filter_by(username="user").one()
     assert user is not None
 
     # Create fresh portfolio
-    from app.service.portfolio_service import create_portfolio
     create_portfolio("Test Portfolio", "Test Portfolio Description", user)
     db_session.commit()
     portfolio = db_session.query(Portfolio).filter_by(name="Test Portfolio").one()
@@ -41,7 +46,7 @@ def mock_alpha_vantage(monkeypatch):
         if ticker == "GOOGL":
             return {"price": 2800.0, "date": "2023-11-20"}
         return None
-    
+
     monkeypatch.setattr("app.service.trade_service.get_price_data", mock_get_price_data)
 
 def test_execute_purchase_order(setup, db_session):
@@ -101,18 +106,18 @@ def test_liquidate_investment(setup, db_session):
     portfolio = setup["portfolio"]
     execute_purchase_order(portfolio.id, "AAPL", 5)
     db_session.commit()
-    
+
     liquidate_investment(portfolio.id, "AAPL", 5, 150.0)
     db_session.commit()
     portfolio = db_session.query(Portfolio).filter_by(id=portfolio.id).one()
     updated_investment = next((inv for inv in portfolio.investments if inv.ticker == "AAPL"), None)
     assert updated_investment is None
-    
+
 def test_liquidate_investment_insufficient_quantity(setup, db_session):
     portfolio = setup["portfolio"]
     execute_purchase_order(portfolio.id, "AAPL", 2)
     db_session.commit()
-    
+
     with pytest.raises(TradeExecutionException) as e:
         liquidate_investment(portfolio.id, "AAPL", 1000, 150.0)
     assert "Cannot liquidate 1000 shares of AAPL" in str(e.value)

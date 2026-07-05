@@ -1,13 +1,12 @@
-from flask import Blueprint, jsonify, g
+from dataclasses import asdict
+
+from flask import Blueprint, jsonify
 
 import app.service.security_service as security_service
 import app.service.transaction_service as transaction_service
-
-from dataclasses import asdict
 from app.auth.auth import require_auth
-from app.service.security_service import SecurityNotFoundException, SecurityFetchException
 from app.schemas.error_schemas import ErrorResponse
-
+from app.service.security_service import SecurityFetchException, SecurityNotFoundException
 
 security_bp = Blueprint('security', __name__)
 

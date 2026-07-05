@@ -10,7 +10,7 @@ def test_get_security_by_ticker(client, auth_headers, monkeypatch):
             return SecurityQuote(ticker="AAPL", date="2023-11-20", price=150.0, issuer="Apple Inc.")
         return None
     monkeypatch.setattr("app.service.security_service.get_quote", mock_get_quote)
-    
+
     response = client.get('/securities/AAPL', headers=auth_headers)
     assert response.status_code == 200
     assert response.json['ticker'] == 'AAPL'
@@ -19,7 +19,7 @@ def test_get_security_not_found(client, auth_headers, monkeypatch):
     def mock_get_quote(ticker):
         return None
     monkeypatch.setattr("app.service.security_service.get_quote", mock_get_quote)
-    
+
     response = client.get('/securities/INVALID', headers=auth_headers)
     assert response.status_code == 404
 

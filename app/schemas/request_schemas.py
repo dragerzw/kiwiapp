@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field
 
+
 class PortfolioCreateSchema(BaseModel):
     model_config = ConfigDict(strict=True, extra='forbid')
 

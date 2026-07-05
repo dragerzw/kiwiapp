@@ -43,7 +43,7 @@ def execute_purchase_order(portfolio_id: int, ticker: str, quantity: int):
         raise TradeExecutionException(str(e)) from e
     except Exception as e:
         raise TradeExecutionException(f'Failed to fetch security data for {ticker}: {str(e)}') from e
-    
+
     if not price_data:
         raise TradeExecutionException(f'Security with ticker {ticker} could not be found via Alpha Vantage.')
     total_cost = price_data['price'] * quantity

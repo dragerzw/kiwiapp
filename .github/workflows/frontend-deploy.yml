@@ -1,0 +1,95 @@
+# Reusable workflow: Build React SPA → sync to S3 → invalidate CloudFront.
+
+name: Frontend Deploy
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+    secrets:
+      AWS_ROLE_ARN:               { required: true }
+      AWS_REGION:                 { required: true }
+      S3_BUCKET_NAME:             { required: true }
+      CLOUDFRONT_DISTRIBUTION_ID: { required: true }
+      # Vite build-time environment variables — baked into the JS bundle
+      VITE_API_BASE_URL:                     { required: true }
+      VITE_COGNITO_AUTHORITY:                { required: true }
+      VITE_COGNITO_CLIENT_ID:                { required: true }
+      VITE_COGNITO_REDIRECT_URI:             { required: true }
+      VITE_COGNITO_POST_LOGOUT_REDIRECT_URI: { required: true }
+      VITE_COGNITO_SCOPE:                    { required: false }
+      VITE_COGNITO_DOMAIN:                   { required: true }
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    name: Deploy frontend to ${{ inputs.environment }}
+    environment: ${{ inputs.environment }}
+
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build React SPA
+        working-directory: ./frontend
+        env:
+          VITE_API_BASE_URL:                     ${{ secrets.VITE_API_BASE_URL }}
+          VITE_COGNITO_AUTHORITY:                ${{ secrets.VITE_COGNITO_AUTHORITY }}
+          VITE_COGNITO_CLIENT_ID:                ${{ secrets.VITE_COGNITO_CLIENT_ID }}
+          VITE_COGNITO_REDIRECT_URI:             ${{ secrets.VITE_COGNITO_REDIRECT_URI }}
+          VITE_COGNITO_POST_LOGOUT_REDIRECT_URI: ${{ secrets.VITE_COGNITO_POST_LOGOUT_REDIRECT_URI }}
+          VITE_COGNITO_SCOPE:                    ${{ secrets.VITE_COGNITO_SCOPE || 'openid email profile' }}
+          VITE_COGNITO_DOMAIN:                   ${{ secrets.VITE_COGNITO_DOMAIN }}
+        run: npm run build
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722 # v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Sync dist/ to S3
+        env:
+          S3_BUCKET: ${{ secrets.S3_BUCKET_NAME }}
+        run: |
+          # Sync built assets — delete stale files from previous deploys
+          aws s3 sync frontend/dist/ "s3://$S3_BUCKET" \
+            --delete \
+            --cache-control "public,max-age=31536000,immutable" \
+            --exclude "index.html"
+
+          # index.html must never be cached — ensures clients always get the latest shell
+          aws s3 cp frontend/dist/index.html "s3://$S3_BUCKET/index.html" \
+            --cache-control "no-store,no-cache,must-revalidate"
+
+      - name: Invalidate CloudFront cache
+        env:
+          CF_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
+            --distribution-id "$CF_DISTRIBUTION_ID" \
+            --paths "/*" \
+            --query "Invalidation.Id" \
+            --output text)
+          echo "CloudFront invalidation created: $INVALIDATION_ID"
+          echo "::notice::✅ Frontend deployed — CloudFront invalidation $INVALIDATION_ID in progress"

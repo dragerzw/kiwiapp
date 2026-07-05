@@ -71,6 +71,7 @@ def test_get_users_internal_error(monkeypatch, client, auth_headers):
     with a thin wrapper that only fails on `get_user_by_username`.
     """
     import types
+
     import app.service.user_service as real_user_service
 
     fake_user_service = types.SimpleNamespace(**{
@@ -87,6 +88,7 @@ def test_get_users_internal_error(monkeypatch, client, auth_headers):
 def test_get_user_internal_error(monkeypatch, client, auth_headers):
     """Same strategy as above: replace only the route module's user_service reference."""
     import types
+
     import app.service.user_service as real_user_service
 
     fake_user_service = types.SimpleNamespace(**{

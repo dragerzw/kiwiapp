@@ -1,7 +1,10 @@
 import datetime
+
 import pytest
-from app.models import User, Portfolio, Transaction
+
+from app.models import Portfolio, Transaction, User
 from app.service import transaction_service
+
 
 @pytest.fixture(autouse=True)
 def setup(db_session):

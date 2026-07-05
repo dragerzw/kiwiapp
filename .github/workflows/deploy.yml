@@ -1,0 +1,138 @@
+# Orchestrator: triggered on merge to main.
+# 1. Builds the Flask API Docker image and pushes it to ECR.
+# 2. Calls ecs-deploy.yml to update ECS.
+# 3. Calls frontend-deploy.yml to sync the React SPA to S3/CloudFront.
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false  # Never cancel an in-flight production deploy
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  AWS_REGION: us-east-1
+
+jobs:
+  # ─── BUILD & PUSH DOCKER IMAGE ───
+  build-and-push:
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      image-uri: ${{ steps.push.outputs.image-uri }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722 # v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@62f4f872db3836360b72999f4b87f1ff13310f3a # v2
+
+      - name: Build, tag, and push image to ECR
+        id: push
+        env:
+          REGISTRY:   ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ secrets.ECR_REPOSITORY_URL }}
+          IMAGE_TAG:  ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          # Build the production Flask image
+          docker build \
+            --tag "${REPOSITORY}:${IMAGE_TAG}" \
+            --tag "${REPOSITORY}:latest" \
+            --file Dockerfile \
+            .
+
+          docker push "${REPOSITORY}:${IMAGE_TAG}"
+          docker push "${REPOSITORY}:latest"
+
+          echo "image-uri=${REPOSITORY}:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "::notice::📦 Image pushed: ${REPOSITORY}:${IMAGE_TAG}"
+
+  # ─── DEPLOY API TO ECS ───
+  deploy-api:
+    needs: [build-and-push]
+    uses: ./.github/workflows/ecs-deploy.yml
+    with:
+      environment:  production
+      image-uri:    ${{ needs.build-and-push.outputs.image-uri }}
+      container-name: kiwi-api
+      cors-origins: "https://kiwiapp.thedrageradvantage.com"
+      cognito-region: "us-east-1"
+    secrets:
+      AWS_ROLE_ARN:                     ${{ secrets.AWS_ROLE_ARN }}
+      AWS_REGION:                       ${{ secrets.AWS_REGION }}
+      ECS_CLUSTER_NAME:                 ${{ secrets.ECS_CLUSTER_NAME }}
+      ECS_SERVICE_NAME:                 ${{ secrets.ECS_SERVICE_NAME }}
+      ECS_TASK_DEFINITION:              ${{ secrets.ECS_TASK_DEFINITION }}
+      DATABASE_URL_VALUEFROM:           ${{ secrets.DATABASE_URL_VALUEFROM }}
+      ALPHA_VANTAGE_API_KEY_VALUEFROM:  ${{ secrets.ALPHA_VANTAGE_API_KEY_VALUEFROM }}
+      COGNITO_USER_POOL_ID_VALUEFROM:   ${{ secrets.COGNITO_USER_POOL_ID_VALUEFROM }}
+      COGNITO_APP_CLIENT_ID_VALUEFROM:  ${{ secrets.COGNITO_APP_CLIENT_ID_VALUEFROM }}
+      SERVICE_URL:                      ${{ secrets.SERVICE_URL }}
+
+  # ─── DEPLOY FRONTEND TO S3 + CLOUDFRONT ───
+  deploy-frontend:
+    needs: [build-and-push]
+    uses: ./.github/workflows/frontend-deploy.yml
+    with:
+      environment: production
+    secrets:
+      AWS_ROLE_ARN:                          ${{ secrets.AWS_ROLE_ARN }}
+      AWS_REGION:                            ${{ secrets.AWS_REGION }}
+      S3_BUCKET_NAME:                        ${{ secrets.S3_BUCKET_NAME }}
+      CLOUDFRONT_DISTRIBUTION_ID:            ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+      VITE_API_BASE_URL:                     ${{ secrets.VITE_API_BASE_URL }}
+      VITE_COGNITO_AUTHORITY:                ${{ secrets.VITE_COGNITO_AUTHORITY }}
+      VITE_COGNITO_CLIENT_ID:                ${{ secrets.VITE_COGNITO_CLIENT_ID }}
+      VITE_COGNITO_REDIRECT_URI:             ${{ secrets.VITE_COGNITO_REDIRECT_URI }}
+      VITE_COGNITO_POST_LOGOUT_REDIRECT_URI: ${{ secrets.VITE_COGNITO_POST_LOGOUT_REDIRECT_URI }}
+      VITE_COGNITO_DOMAIN:                   ${{ secrets.VITE_COGNITO_DOMAIN }}
+
+  # ─── DEPLOY SUMMARY ───
+  deploy-summary:
+    runs-on: ubuntu-latest
+    needs: [build-and-push, deploy-api, deploy-frontend]
+    if: always()
+    steps:
+      - name: Write deploy summary
+        env:
+          IMAGE_URI: ${{ needs.build-and-push.outputs.image-uri }}
+        run: |
+          API_RESULT="${{ needs.deploy-api.result }}"
+          FE_RESULT="${{ needs.deploy-frontend.result }}"
+          OVERALL="✅ All systems deployed"
+          [[ "$API_RESULT" == "failure" || "$FE_RESULT" == "failure" ]] && OVERALL="❌ Deploy failed"
+
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## 🥝 KiwiApp Deploy Summary
+
+          **Commit:** \`${GITHUB_SHA::8}\`  **Branch:** \`${{ github.ref_name }}\`
+
+          | Component | Status |
+          | :--- | :--- |
+          | 🐳 Docker Build | ${{ needs.build-and-push.result }} |
+          | 🚀 ECS API | ${API_RESULT} |
+          | 🌐 Frontend (S3/CF) | ${FE_RESULT} |
+
+          **Image:** \`${IMAGE_URI}\`
+
+          ### ${OVERALL}
+          EOF
