@@ -1,9 +1,9 @@
+import secrets
 from functools import wraps
 from typing import Dict, Optional
-import secrets
 
 import requests
-from flask import current_app, jsonify, request, g
+from flask import current_app, g, jsonify, request
 from jose import jwt
 from jose.exceptions import ExpiredSignatureError, JWTClaimsError, JWTError
 from sqlalchemy.exc import IntegrityError
@@ -133,8 +133,8 @@ def _maybe_provision_user_from_claims(username: str, claims: Dict) -> None:
     if not current_app.config.get('ENABLE_AUTH_JIT_PROVISIONING', False):
         return
 
-    from app.service import user_service
     from app.db import db
+    from app.service import user_service
 
     try:
         user = user_service.get_user_by_username(username)

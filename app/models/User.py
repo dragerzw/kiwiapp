@@ -9,7 +9,7 @@ from app.db import db
 
 if TYPE_CHECKING:
     # imports that are used only for type checking to avoid circular dependencies
-    from app.models import Portfolio, Transaction, PortfolioAccess
+    from app.models import Portfolio, PortfolioAccess, Transaction
 
 
 class User(db.Model):

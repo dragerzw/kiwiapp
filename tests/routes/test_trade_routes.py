@@ -13,10 +13,10 @@ def test_buy_trade(client, auth_headers, monkeypatch):
         return {"price": 150.0, "date": "2023-11-20"}
     monkeypatch.setattr("app.service.trade_service.get_price_data", mock_get_price_data)
     monkeypatch.setattr("app.routes.trade_routes.get_price_data", mock_get_price_data)
-    
+
     create_resp = client.post('/portfolios/', json={"name": "Trade Port 1", "description": "Desc"}, headers=auth_headers)
     pid = create_resp.json['portfolio_id']
-    
+
     data = {"portfolio_id": pid, "ticker": "AAPL", "quantity": 2}
     response = client.post('/trades/buy', json=data, headers=auth_headers)
     assert response.status_code == 201
@@ -26,13 +26,13 @@ def test_sell_trade(client, auth_headers, monkeypatch):
         return {"price": 150.0, "date": "2023-11-20"}
     monkeypatch.setattr("app.service.trade_service.get_price_data", mock_get_price_data)
     monkeypatch.setattr("app.routes.trade_routes.get_price_data", mock_get_price_data)
-    
+
     create_resp = client.post('/portfolios/', json={"name": "Trade Port 2", "description": "Desc"}, headers=auth_headers)
     pid = create_resp.json['portfolio_id']
-    
+
     buy_data = {"portfolio_id": pid, "ticker": "AAPL", "quantity": 5}
     client.post('/trades/buy', json=buy_data, headers=auth_headers)
-    
+
     sell_data = {"portfolio_id": pid, "ticker": "AAPL", "quantity": 2}
     response = client.post('/trades/sell', json=sell_data, headers=auth_headers)
     assert response.status_code == 200

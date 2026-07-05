@@ -1,5 +1,7 @@
 import pytest
-from app.service.alpha_vantage_client import get_company_name, get_price_data, get_quote, AlphaVantageError
+
+from app.service.alpha_vantage_client import AlphaVantageError, get_company_name, get_price_data, get_quote
+
 
 def test_get_company_name(monkeypatch, app):
     with app.app_context():
@@ -115,11 +117,11 @@ def test_get_quote(monkeypatch, app):
                 return {"Global Quote": {"05. price": "150.00", "07. latest trading day": "2023-11-20"}, "bestMatches": [{"2. name": "Apple Inc."}]}
             def raise_for_status(self):
                 pass
-        
+
         def mock_get(url, *args, **kwargs):
             return MockResponse()
         monkeypatch.setattr(requests, "get", mock_get)
-        
+
         quote = get_quote("AAPL")
         assert quote.ticker == "AAPL"
         assert quote.price == 150.0
@@ -128,17 +130,18 @@ def test_get_quote(monkeypatch, app):
 
 def test_get_quote_invalid(monkeypatch, app):
     with app.app_context():
-        from app.cache import cache
         import requests
+
+        from app.cache import cache
         cache.clear()
         class MockResponse:
             def json(self):
                 return {"Global Quote": {}}
             def raise_for_status(self):
                 pass
-        
+
         def mock_get(url, *args, **kwargs):
             return MockResponse()
         monkeypatch.setattr(requests, "get", mock_get)
-        
+
         assert get_quote("AAPL") is None

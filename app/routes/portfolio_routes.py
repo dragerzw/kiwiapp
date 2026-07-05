@@ -1,17 +1,18 @@
-
-from flask import Blueprint, jsonify, request, g
 import logging
 
-logger = logging.getLogger(__name__)
+from flask import Blueprint, g, jsonify, request
 
 import app.service.portfolio_service as portfolio_service
 import app.service.transaction_service as transaction_service
 import app.service.user_service as user_service
-from app.db import db
-from app.schemas.request_schemas import PortfolioCreateSchema, AccessGrantSchema
-from app.schemas.error_schemas import ErrorResponse
-from app.service.alpha_vantage_client import AlphaVantageError, get_price_data
 from app.auth.auth import require_auth
+from app.auth.helpers import is_admin
+from app.db import db
+from app.schemas.error_schemas import ErrorResponse
+from app.schemas.request_schemas import AccessGrantSchema, PortfolioCreateSchema
+from app.service.alpha_vantage_client import AlphaVantageError, get_price_data
+
+logger = logging.getLogger(__name__)
 
 portfolio_bp = Blueprint('portfolio', __name__)
 INTERNAL_SERVER_ERROR_MESSAGE = 'Internal server error'
@@ -30,7 +31,6 @@ def _serialize_portfolio(portfolio, include_quotes: bool = False) -> dict:
     return portfolio_dict
 
 
-from app.auth.helpers import is_admin
 
 
 def _enrich_portfolio(portfolio_dict: dict) -> dict:
@@ -58,7 +58,7 @@ def _enrich_portfolio(portfolio_dict: dict) -> dict:
 
         if isinstance(inv.get('total_value'), (int, float)):
             total_value += inv['total_value']
-    
+
     portfolio_dict['total_portfolio_value'] = total_value
     if quote_error:
         portfolio_dict['quote_error'] = quote_error
@@ -72,7 +72,7 @@ def get_all_portfolios():
         is_admin_user = is_admin(claims)
 
         include_quotes = _should_include_quotes()
-        
+
         if is_admin_user:
             portfolios = portfolio_service.get_all_portfolios()
         else:
@@ -198,7 +198,7 @@ def grant_access(portfolio_id):
 def delete_portfolio(portfolio_id):
     try:
         logger.debug('delete_portfolio called for id: %s', portfolio_id)
-        
+
         claims = g.user.get('claims', {})
         is_admin_user = is_admin(claims)
 

@@ -87,7 +87,7 @@ def revoke_portfolio_access(portfolio_id: int, username: str):
     if not access or access.role == 'Owner':
         return None
     db.session.delete(access)
-    
+
 def has_portfolio_access(portfolio_id: int, username: str, allowed_roles: List[str]) -> bool:
     access = db.session.query(PortfolioAccess).filter_by(portfolio_id=portfolio_id, username=username).one_or_none()
     if not access:

@@ -1,7 +1,7 @@
-from dataclasses import dataclass
-from typing import Optional
 import threading
 import time
+from dataclasses import dataclass
+from typing import Optional
 
 import requests
 from flask import current_app
@@ -172,7 +172,7 @@ def get_price_data(ticker: str) -> Optional[dict]:
         return cached
 
     data = _request_alpha_vantage("GLOBAL_QUOTE", symbol=normalized_ticker)
-    
+
     quote = data.get("Global Quote", {})
     if not quote or "05. price" not in quote:
         return None
@@ -199,11 +199,11 @@ def get_quote(ticker: str) -> Optional[SecurityQuote]:
     price_data = get_price_data(ticker)
     if not price_data:
         return None
-        
+
     company_name = get_company_name(ticker)
     if not company_name:
         company_name = "Unknown Issuer"
-        
+
     return SecurityQuote(
         ticker=_normalize_ticker(ticker),
         date=price_data["date"],
