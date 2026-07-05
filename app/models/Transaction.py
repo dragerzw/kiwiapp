@@ -1,0 +1,73 @@
+import datetime
+from typing import TYPE_CHECKING
+
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db import db
+
+if TYPE_CHECKING:
+    # imports that are used only for type checking to avoid circular dependencies
+    from app.models import Portfolio, User
+
+
+class Transaction(db.Model):
+    __tablename__ = 'transaction'
+    transaction_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(String(30), ForeignKey('user.username'), nullable=False)
+    # Allow portfolio_id to be nullable so transactions persist if a portfolio is deleted.
+    # Use ON DELETE SET NULL on the FK so the DB will null the reference when the portfolio is removed.
+    portfolio_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey('portfolio.id', ondelete='SET NULL'), nullable=True
+    )
+    ticker: Mapped[str] = mapped_column(String(30), nullable=False)
+    transaction_type: Mapped[str] = mapped_column(String(10), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    price: Mapped[float] = mapped_column(Float, nullable=False)
+    date_time: Mapped[datetime.datetime] = mapped_column(DateTime, nullable=False)
+
+    user: Mapped['User'] = relationship('User', back_populates='transactions', foreign_keys=[username], lazy='selectin')
+    portfolio: Mapped['Portfolio'] = relationship(
+        'Portfolio',
+        back_populates='transactions',
+        foreign_keys=[portfolio_id],
+        lazy='selectin',
+    )
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            username: str,
+            portfolio_id: int | None,
+            ticker: str,
+            transaction_type: str,
+            quantity: int,
+            price: float,
+            date_time: datetime.datetime,
+        ) -> None: ...
+
+    def __str__(self):
+        return (
+            f'<Transaction: id={self.transaction_id}; user={self.username}; '
+            f'portfolio_id={self.portfolio_id}; ticker={self.ticker}; '
+            f'type={self.transaction_type}; quantity={self.quantity}; '
+            f'price={self.price}; date_time={self.date_time}>'
+        )
+
+    def __to_dict__(self):
+        total_value = self.price * self.quantity
+        return {
+            'id': self.transaction_id,
+            'transaction_id': self.transaction_id,
+            'username': self.username,
+            'portfolio_id': self.portfolio_id,
+            'type': self.transaction_type,
+            'ticker': self.ticker,
+            'transaction_type': self.transaction_type,
+            'quantity': self.quantity,
+            'price': self.price,
+            'total_value': total_value,
+            'date_time': self.date_time.isoformat(),
+        }
