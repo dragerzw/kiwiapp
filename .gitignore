@@ -19,3 +19,15 @@ dist/
 dev.db
 htmlcov/
 pytest-cache-files-*/
+
+# ─── Terraform ───────────────────────────────────
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfstate.lock.info
+*.tfvars            # never commit — contains db_password etc.
+*.tfplan
+.terraform.lock.hcl # re-generated on terraform init; add to VCS if you want reproducible provider versions
+
+# ─── macOS ───────────────────────────────────────
+.DS_Store

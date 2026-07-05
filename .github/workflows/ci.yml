@@ -1,0 +1,194 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "Assignment-*", "feature/*", "fix/*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  # ─── CHANGE DETECTION ───
+  change-detection:
+    runs-on: ubuntu-latest
+    outputs:
+      backend_changed:  ${{ steps.paths.outputs.backend_changed  == 'true' || github.ref == 'refs/heads/main' }}
+      frontend_changed: ${{ steps.paths.outputs.frontend_changed == 'true' || github.ref == 'refs/heads/main' }}
+      infra_changed:    ${{ steps.paths.outputs.infra_changed    == 'true' || github.ref == 'refs/heads/main' }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+        with:
+          fetch-depth: 0
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v3
+        id: paths
+        with:
+          filters: |
+            backend_changed:  ['app/**', 'tests/**', 'requirements.txt', 'run.py', 'Dockerfile', '.github/workflows/**']
+            frontend_changed: ['frontend/**', '.github/workflows/**']
+            infra_changed:    ['terraform/**', '.github/workflows/**']
+
+  # ─── BACKEND: PYTEST + COVERAGE ───
+  pytest:
+    needs: [change-detection]
+    if: needs.change-detection.outputs.backend_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run pytest with coverage
+        run: |
+          python -m pytest \
+            --cov=app \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml \
+            --cov-fail-under=80 \
+            -v
+        env:
+          FLASK_ENV: test
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+  # ─── BACKEND: RUFF LINTER ───
+  ruff:
+    needs: [change-detection]
+    if: needs.change-detection.outputs.backend_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      - name: Install ruff
+        run: pip install ruff
+      - name: Run ruff
+        run: ruff check .
+
+  # ─── FRONTEND: ESLint ───
+  frontend-lint:
+    needs: [change-detection]
+    if: needs.change-detection.outputs.frontend_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+      - name: Run ESLint
+        working-directory: ./frontend
+        run: npm run lint
+
+  # ─── TERRAFORM: CHECKOV IaC SECURITY SCAN ───
+  checkov:
+    needs: [change-detection]
+    if: needs.change-detection.outputs.infra_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@4048c972aae68d0b983a48bb3479aab2d877b898
+        with:
+          directory: terraform/
+          framework: terraform
+          soft_fail: true
+          output_format: cli,json
+          output_file_path: console,checkov-results.json
+
+      - name: Checkov summary
+        if: always()
+        run: |
+          if [ -f "checkov-results.json" ]; then
+            node -e "
+            const fs = require('fs');
+            try {
+              const data = JSON.parse(fs.readFileSync('checkov-results.json', 'utf8'));
+              const scans = Array.isArray(data) ? data : [data];
+              let md = '### 🛡️ Checkov Terraform Scan\n\n';
+              md += '| Framework | ✅ Passed | ❌ Failed | ⏭ Skipped |\n';
+              md += '| :--- | :---: | :---: | :---: |\n';
+              let total = {passed:0,failed:0,skipped:0};
+              scans.forEach(s => {
+                if (!s.summary) return;
+                const {passed,failed,skipped} = s.summary;
+                total.passed+=passed; total.failed+=failed; total.skipped+=skipped;
+                md += \`| \${s.check_type||'terraform'} | \${passed} | \${failed} | \${skipped} |\n\`;
+              });
+              md += \`| **Total** | **\${total.passed}** | **\${total.failed}** | **\${total.skipped}** |\n\`;
+              fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
+            } catch(e) { console.error(e); }
+            "
+          fi
+
+  # ─── GATE: ALL REQUIRED CHECKS MUST PASS ───
+  ci-complete:
+    runs-on: ubuntu-latest
+    needs: [pytest, ruff, frontend-lint, checkov]
+    if: always()
+    steps:
+      - name: Evaluate CI result
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          OVERALL="✅ PASS"
+          EXIT_CODE=0
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]] || \
+             [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            OVERALL="❌ FAIL"
+            EXIT_CODE=1
+          fi
+
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## 🥝 KiwiApp CI Summary
+          **Commit:** \`${GITHUB_SHA::8}\` on \`${{ github.head_ref || github.ref_name }}\`
+          **Triggered by:** ${{ github.actor }}
+
+          | Job | Status |
+          | :--- | :--- |
+          EOF
+
+          echo "$NEEDS_JSON" | jq -r '
+            to_entries | map(
+              .key as $job | .value.result as $res |
+              (if $res == "success" then "✅ success"
+               elif $res == "failure" then "❌ failure"
+               elif $res == "skipped" then "⏭️ skipped"
+               else "⚠️ \($res)" end) as $emoji |
+              "| \($job) | \($emoji) |"
+            ) | .[]
+          ' >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Overall: ${OVERALL}" >> "$GITHUB_STEP_SUMMARY"
+          exit $EXIT_CODE

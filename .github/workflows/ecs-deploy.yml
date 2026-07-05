@@ -1,0 +1,247 @@
+# Reusable workflow: Build Flask API image → push to ECR → update ECS service.
+# Called by deploy.yml. Mirrors the Edutrend ecs-deploy.yml pattern.
+
+name: ECS Deploy
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "Target environment (production)"
+        required: true
+        type: string
+      image-uri:
+        description: "Full ECR image URI (repo:sha)"
+        required: true
+        type: string
+      container-name:
+        description: "ECS container name in the task definition"
+        required: false
+        type: string
+        default: "kiwi-api"
+      deploy-timeout:
+        description: "Minutes to wait for ECS service stability"
+        required: false
+        type: number
+        default: 10
+      flask-env:
+        description: "FLASK_ENV value"
+        required: false
+        type: string
+        default: "production"
+      cors-origins:
+        description: "CORS_ORIGINS value"
+        required: false
+        type: string
+        default: "https://kiwiapp.thedrageradvantage.com"
+      cognito-region:
+        description: "COGNITO_REGION value"
+        required: false
+        type: string
+        default: "us-east-1"
+    secrets:
+      AWS_ROLE_ARN:         { required: true }
+      AWS_REGION:           { required: true }
+      ECS_CLUSTER_NAME:     { required: true }
+      ECS_SERVICE_NAME:     { required: true }
+      ECS_TASK_DEFINITION:  { required: true }
+      # SSM Parameter Store ARNs / paths used as ECS secret valueFrom references.
+      # The ECS execution role has ssm:GetParameter on /kiwiapp/production/*.
+      DATABASE_URL_VALUEFROM:           { required: true }
+      ALPHA_VANTAGE_API_KEY_VALUEFROM:  { required: true }
+      COGNITO_USER_POOL_ID_VALUEFROM:   { required: true }
+      COGNITO_APP_CLIENT_ID_VALUEFROM:  { required: true }
+      SERVICE_URL:
+        required: false
+
+permissions:
+  contents: read
+  id-token: write  # Required for OIDC federation
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy to ${{ inputs.environment }}
+    environment: ${{ inputs.environment }}
+
+    env:
+      ECS_CONTAINER_NAME: ${{ inputs.container-name }}
+      SERVICE_URL: ${{ secrets.SERVICE_URL }}
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+
+      # ── AWS auth via OIDC — no long-lived credentials stored in GitHub ──
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722 # v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # ── Download current task definition (strips immutable fields via jq) ──
+      - name: Download current ECS task definition
+        env:
+          TASK_DEF_FAMILY: ${{ secrets.ECS_TASK_DEFINITION }}
+        run: |
+          set -euo pipefail
+          aws ecs describe-task-definition \
+            --task-definition "$TASK_DEF_FAMILY" \
+            --query taskDefinition \
+            --output json \
+          | jq 'del(
+              .taskDefinitionArn,
+              .revision,
+              .status,
+              .requiresAttributes,
+              .compatibilities,
+              .registeredAt,
+              .registeredBy
+            )' > task-def.json
+          test -s task-def.json || { echo "::error::task-def.json is empty"; exit 1; }
+
+      # ── Validate image URI and secret references before mutating anything ──
+      - name: Validate image and secret references
+        env:
+          IMAGE_URI:                         ${{ inputs.image-uri }}
+          DATABASE_URL_VALUEFROM:            ${{ secrets.DATABASE_URL_VALUEFROM }}
+          ALPHA_VANTAGE_API_KEY_VALUEFROM:   ${{ secrets.ALPHA_VANTAGE_API_KEY_VALUEFROM }}
+          COGNITO_USER_POOL_ID_VALUEFROM:    ${{ secrets.COGNITO_USER_POOL_ID_VALUEFROM }}
+          COGNITO_APP_CLIENT_ID_VALUEFROM:   ${{ secrets.COGNITO_APP_CLIENT_ID_VALUEFROM }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$IMAGE_URI" ]; then
+            echo "::error::image-uri is empty"; exit 1
+          fi
+
+          # Require an explicit tag or digest — never deploy :latest
+          if ! [[ "$IMAGE_URI" =~ @sha256:[0-9a-fA-F]{64}$ || "$IMAGE_URI" =~ :[^/]+$ ]]; then
+            echo "::error::image-uri must include an explicit tag (repo:tag) or digest (repo@sha256:...)"; exit 1
+          fi
+
+          # Verify the container name exists in the downloaded task definition
+          if ! jq -e --arg c "$ECS_CONTAINER_NAME" \
+            'any(.containerDefinitions[]; .name == $c)' task-def.json > /dev/null; then
+            echo "::error::container $ECS_CONTAINER_NAME not found in task-def.json"; exit 1
+          fi
+
+          # All SSM valueFrom references must be populated
+          for ref in DATABASE_URL_VALUEFROM ALPHA_VANTAGE_API_KEY_VALUEFROM \
+                     COGNITO_USER_POOL_ID_VALUEFROM COGNITO_APP_CLIENT_ID_VALUEFROM; do
+            if [ -z "$(printenv "$ref")" ]; then
+              echo "::error::Missing required secret reference: ${ref}"; exit 1
+            fi
+          done
+
+      # ── Inject SSM secret references into the container's .secrets array ──
+      # ECS pulls the actual values from SSM at task launch — they never touch GitHub.
+      - name: Inject SSM secret references into task definition
+        env:
+          DATABASE_URL_VALUEFROM:           ${{ secrets.DATABASE_URL_VALUEFROM }}
+          ALPHA_VANTAGE_API_KEY_VALUEFROM:  ${{ secrets.ALPHA_VANTAGE_API_KEY_VALUEFROM }}
+          COGNITO_USER_POOL_ID_VALUEFROM:   ${{ secrets.COGNITO_USER_POOL_ID_VALUEFROM }}
+          COGNITO_APP_CLIENT_ID_VALUEFROM:  ${{ secrets.COGNITO_APP_CLIENT_ID_VALUEFROM }}
+        run: |
+          jq --arg container "$ECS_CONTAINER_NAME" \
+             --arg db_url          "$DATABASE_URL_VALUEFROM" \
+             --arg av_key          "$ALPHA_VANTAGE_API_KEY_VALUEFROM" \
+             --arg cognito_pool_id "$COGNITO_USER_POOL_ID_VALUEFROM" \
+             --arg cognito_client  "$COGNITO_APP_CLIENT_ID_VALUEFROM" '
+            .containerDefinitions |= map(
+              if .name == $container then
+                .secrets = (
+                  reduce (
+                    (.secrets // []) + [
+                      {name:"DATABASE_URL",           valueFrom:$db_url},
+                      {name:"ALPHA_VANTAGE_API_KEY",  valueFrom:$av_key},
+                      {name:"COGNITO_USER_POOL_ID",   valueFrom:$cognito_pool_id},
+                      {name:"COGNITO_APP_CLIENT_ID",  valueFrom:$cognito_client}
+                    ]
+                  )[] as $s
+                  ([]; [.[] | select(.name != $s.name)] + [$s])
+                )
+              else . end
+            )
+          ' task-def.json > task-def.updated.json
+          mv task-def.updated.json task-def.json
+
+      # ── Render: set new image + non-sensitive environment variables ──
+      - name: Render new task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@c804dfbdd57f713b6c079302a4c01db7017a36fc # v1.2.0
+        with:
+          task-definition: task-def.json
+          container-name: ${{ inputs.container-name }}
+          image: ${{ inputs.image-uri }}
+          environment-variables: |
+            FLASK_ENV=${{ inputs.flask-env }}
+            CORS_ORIGINS=${{ inputs.cors-origins }}
+            COGNITO_REGION=${{ inputs.cognito-region }}
+            AUTO_CREATE_SCHEMA=false
+            ENABLE_AUTH_JIT_PROVISIONING=true
+            ENABLE_DEBUG_AUTH_DIAGNOSTICS=false
+
+      # ── Capture current task definition ARN for rollback ──
+      - name: Get current task definition ARN
+        id: current-task-def
+        env:
+          ECS_CLUSTER: ${{ secrets.ECS_CLUSTER_NAME }}
+          ECS_SERVICE: ${{ secrets.ECS_SERVICE_NAME }}
+        run: |
+          CURRENT=$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE" \
+            --query "services[0].taskDefinition" \
+            --output text)
+          echo "current-task-def-arn=$CURRENT" >> "$GITHUB_OUTPUT"
+          echo "Active task definition before deploy: $CURRENT"
+
+      # ── Deploy ──
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@df9643053eda01f169e64a0e60233aacca83799a # v2.1.4
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ secrets.ECS_SERVICE_NAME }}
+          cluster: ${{ secrets.ECS_CLUSTER_NAME }}
+          wait-for-service-stability: true
+          wait-for-minutes: ${{ inputs.deploy-timeout }}
+
+      # ── Smoke test: ensure the API health endpoint returns 200 ──
+      - name: Smoke test GET /
+        if: env.SERVICE_URL != ''
+        run: |
+          echo "Smoke test → ${SERVICE_URL}/"
+          sleep 10
+          curl -fsS --retry 5 --retry-delay 5 --retry-all-errors \
+            "${SERVICE_URL}/" | grep -q "Portfolio Management API" || {
+            echo "::error::Smoke test failed — GET / did not return expected response"
+            exit 1
+          }
+          echo "✓ Smoke test passed"
+
+      # ── Rollback to previous task definition on failure ──
+      - name: Rollback on failure
+        if: (failure() || cancelled()) && steps.current-task-def.outputs['current-task-def-arn'] != ''
+        env:
+          ECS_CLUSTER:       ${{ secrets.ECS_CLUSTER_NAME }}
+          ECS_SERVICE:       ${{ secrets.ECS_SERVICE_NAME }}
+          PREVIOUS_TASK_DEF: ${{ steps.current-task-def.outputs['current-task-def-arn'] }}
+        run: |
+          echo "::warning::Deploy failed — rolling back to $PREVIOUS_TASK_DEF"
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
+            --task-definition "$PREVIOUS_TASK_DEF" \
+            --force-new-deployment
+          echo "Waiting for rollback to stabilize..."
+          aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE"
+
+      - name: Notify success
+        if: success()
+        run: echo "::notice::✅ ${{ inputs.environment }} deploy complete — ${{ inputs.image-uri }}"
+
+      - name: Notify failure
+        if: failure()
+        run: echo "::error::❌ ${{ inputs.environment }} deploy failed — ${{ inputs.image-uri }}"
