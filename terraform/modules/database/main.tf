@@ -155,7 +155,7 @@ output "rds_connection_url_template" {
   description = "DATABASE_URL template — substitute the actual password before storing in SSM"
   sensitive   = true
   value = format(
-    "mysql+pymysql://kiwi_admin:<PASSWORD>@%s:%d/%s",
+    "mysql+pymysql://kiwi_admin:<PASSWORD>@%s:%d/%s?ssl_ca=/etc/ssl/certs/ca-certificates.crt",
     aws_db_instance.mysql.address,
     aws_db_instance.mysql.port,
     aws_db_instance.mysql.db_name,

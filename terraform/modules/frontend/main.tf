@@ -29,6 +29,11 @@ variable "acm_certificate_arn" {
   type        = string
   default     = null
   description = "ACM certificate ARN in us-east-1 for the CloudFront custom domain. Required when domain_names is non-empty."
+
+  validation {
+    condition     = length(var.domain_names) == 0 || (var.acm_certificate_arn != null && trimspace(var.acm_certificate_arn) != "")
+    error_message = "acm_certificate_arn must be set (non-empty) when domain_names is non-empty."
+  }
 }
 
 data "aws_caller_identity" "current" {}

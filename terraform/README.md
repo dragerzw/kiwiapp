@@ -200,7 +200,7 @@ networking
 
 | Resource | Cost |
 | :--- | :--- |
-| ECS Fargate (0.25 vCPU, 0.5 GB, SPOT mix) | ~$5–10/mo |
+| ECS Fargate (0.5 vCPU, 1 GB, SPOT mix) | ~$5–10/mo |
 | RDS MySQL t4g.micro, 20 GB gp3 | ~$15/mo |
 | NAT Instance t4g.nano | ~$3/mo |
 | ALB | ~$16/mo |

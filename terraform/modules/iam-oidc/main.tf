@@ -125,14 +125,14 @@ resource "aws_iam_role_policy" "github_actions" {
       # ECS service update for rolling deploys
       {
         Effect = "Allow"
-        Action = ["ecs:UpdateService", "ecs:DescribeServices"]
+        Action = ["ecs:UpdateService"]
         Resource = var.ecs_service_arn
       },
-      # Task definition operations — resource-level permissions not supported by AWS
+      # Task definition operations & service discovery — resource-level permissions not supported by AWS
       # https://docs.aws.amazon.com/AmazonECS/latest/developerguide/security_iam_id-based-policy-examples.html
       {
         Effect   = "Allow"
-        Action   = ["ecs:DescribeTaskDefinition", "ecs:RegisterTaskDefinition"]
+        Action   = ["ecs:DescribeTaskDefinition", "ecs:RegisterTaskDefinition", "ecs:DescribeServices"]
         Resource = "*"
       },
       # S3 sync for frontend assets
