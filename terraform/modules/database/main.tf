@@ -104,6 +104,7 @@ resource "aws_db_instance" "mysql" {
   # checkov:skip=CKV_AWS_293: Deletion protection handled conditionally below.
   # checkov:skip=CKV_AWS_157: Multi-AZ conditional on environment.
   # checkov:skip=CKV2_AWS_60: Copy tags to snapshots not required.
+  # checkov:skip=CKV2_AWS_69: Encryption in transit is enforced via the custom mysql80-ssl parameter group.
   identifier        = "kiwi-${var.environment}-mysql"
   engine            = "mysql"
   engine_version    = "8.0"

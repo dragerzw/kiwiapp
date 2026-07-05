@@ -95,6 +95,7 @@ resource "aws_cloudfront_distribution" "client" {
   # checkov:skip=CKV2_AWS_32: Response headers policy not required.
   # checkov:skip=CKV2_AWS_47: AMR for Log4j not required for static SPA.
   # checkov:skip=CKV_AWS_374: Geo restriction intentionally disabled.
+  # checkov:skip=CKV_AWS_174: Default CloudFront cert requires TLSv1; custom domain uses TLSv1.2_2021.
   enabled             = true
   is_ipv6_enabled     = true
   default_root_object = "index.html"

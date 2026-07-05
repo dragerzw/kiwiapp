@@ -156,6 +156,7 @@ resource "aws_lb" "main" {
   # checkov:skip=CKV_AWS_91: Access logging not required for this tier.
   # checkov:skip=CKV2_AWS_20: HTTP redirect handled via dynamic block, checkov can't parse it.
   # checkov:skip=CKV2_AWS_28: WAF is cost prohibitive for this tier.
+  # checkov:skip=CKV_AWS_150: Deletion protection is handled conditionally for production.
   name                       = "kiwi-${var.environment}-alb"
   internal                   = false
   load_balancer_type         = "application"
