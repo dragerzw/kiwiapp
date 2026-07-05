@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 class PortfolioAccess(db.Model):
     __tablename__ = 'portfolio_access'
-    
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(30), ForeignKey('user.username'), nullable=False)
     portfolio_id: Mapped[int] = mapped_column(Integer, ForeignKey('portfolio.id'), nullable=False)

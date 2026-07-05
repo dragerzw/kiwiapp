@@ -2,18 +2,18 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-
-project_root = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(project_root))
 from typing import Generator
 
 import pytest
-from app import create_app
-from app.config import TestConfig
-from app.db import db
-from sqlalchemy.orm import sessionmaker
-from app.models import User
 from sqlalchemy.orm import Session
+
+project_root = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(project_root))
+
+from app import create_app  # noqa: E402
+from app.config import TestConfig  # noqa: E402
+from app.db import db  # noqa: E402
+from app.models import User  # noqa: E402
 
 
 @pytest.fixture(scope='session')
@@ -45,7 +45,7 @@ def auth_headers(monkeypatch, app):
     validator = app.config.get('COGNITO_VALIDATOR')
     issuer = getattr(validator, 'issuer', "https://cognito-idp.us-east-1.amazonaws.com/test_pool")
     client_id = getattr(validator, 'app_client_id', "test_client")
-    
+
     def mock_decode(*args, **kwargs):
         return {
             "sub": "admin",
@@ -93,8 +93,8 @@ def _populate_database(session):
         return user
 
     admin_user = get_or_create_user('admin', 'admin', 'Admin', 'User', 1000.00)
-    user2 = get_or_create_user('user2', 'pwd', 'User', 'Two', 500.00)
-    user3 = get_or_create_user('other_user', 'pwd', 'Other', 'User', 300.00)
+    get_or_create_user('user2', 'pwd', 'User', 'Two', 500.00)
+    get_or_create_user('other_user', 'pwd', 'Other', 'User', 300.00)
     # Optionally, add portfolios for admin and user2
     from app.models import Portfolio, PortfolioAccess
     port1 = Portfolio(name='Test Port', description='Test', user=admin_user, owner=admin_user.username)

@@ -1,7 +1,8 @@
 import pytest
 from flask import jsonify
-import jwt
+
 from app.auth import require_auth
+
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_auth_route(app):
@@ -30,7 +31,7 @@ def test_invalid_bearer(client, app):
 def test_valid_token_mocked(client, app, monkeypatch):
     monkeypatch.setattr('app.auth.auth.jwt.get_unverified_header', lambda x: {"kid": "key1"})
     monkeypatch.setattr('app.auth.auth.CognitoTokenValidator._get_jwks', lambda self: {"keys": [{"kid": "key1", "kty": "RSA", "alg": "RS256"}]})
-    
+
     def mock_decode(*args, **kwargs):
         return {
             "sub": "user123",
@@ -40,7 +41,7 @@ def test_valid_token_mocked(client, app, monkeypatch):
             "iss": "https://cognito-idp.dummy-region.amazonaws.com/dummy-pool",
         }
     monkeypatch.setattr('app.auth.auth.jwt.decode', mock_decode)
-    
+
     response = client.get('/test_protected', headers={"Authorization": "Bearer validtoken"})
     assert response.status_code == 200
     assert response.json["username"] == "testuser"
@@ -66,12 +67,12 @@ def test_valid_access_token_mocked(client, app, monkeypatch):
 def test_expired_token(client, app, monkeypatch):
     monkeypatch.setattr('app.auth.auth.jwt.get_unverified_header', lambda x: {"kid": "key1"})
     monkeypatch.setattr('app.auth.auth.CognitoTokenValidator._get_jwks', lambda self: {"keys": [{"kid": "key1", "kty": "RSA", "alg": "RS256"}]})
-    
+
     from jose.exceptions import ExpiredSignatureError
     def mock_decode_expired(*args, **kwargs):
         raise ExpiredSignatureError("Expired")
     monkeypatch.setattr('app.auth.auth.jwt.decode', mock_decode_expired)
-    
+
     response = client.get('/test_protected', headers={"Authorization": "Bearer validtoken"})
     assert response.status_code == 401
     assert b"Token validation failed" in response.data

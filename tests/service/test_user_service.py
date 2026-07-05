@@ -1,7 +1,9 @@
 import pytest
 from sqlalchemy.exc import IntegrityError
+
 import app.service.user_service as user_service
 from app.models import User
+
 
 def test_get_all_users_exception(db_session, monkeypatch):
     def raise_exception(*args, **kwargs):

@@ -1,6 +1,8 @@
 import pytest
-from app.service.security_service import get_all_securities, SecurityException, get_security_by_ticker
+
 from app.service.alpha_vantage_client import SecurityQuote
+from app.service.security_service import SecurityException, get_all_securities, get_security_by_ticker
+
 
 @pytest.fixture(autouse=True)
 def mock_alpha_vantage(monkeypatch):
@@ -8,7 +10,7 @@ def mock_alpha_vantage(monkeypatch):
         if ticker == "AAPL":
             return SecurityQuote(ticker="AAPL", date="2023-11-20", price=150.0, issuer="Apple Inc.")
         return None
-    
+
     monkeypatch.setattr("app.service.security_service.get_quote", mock_get_quote)
 
 def test_get_security_by_ticker(db_session):

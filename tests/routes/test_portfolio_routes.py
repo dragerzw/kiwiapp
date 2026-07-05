@@ -1,4 +1,3 @@
-from app.config import TestConfig
 from app.db import db
 from app.service.portfolio_service import PortfolioOperationError
 
@@ -68,7 +67,7 @@ def test_get_portfolio(client, auth_headers, monkeypatch):
     data = {"name": "Test Port", "description": "Test"}
     create_resp = client.post('/portfolios/', json=data, headers=auth_headers)
     pid = create_resp.json['portfolio_id']
-    
+
     response = client.get(f'/portfolios/{pid}', headers=auth_headers)
     assert response.status_code == 200
     assert response.json['name'] == 'Test Port'
@@ -103,7 +102,7 @@ def test_portfolio_access_grant(client, auth_headers):
     data = {"name": "Access Port", "description": "Test"}
     create_resp = client.post('/portfolios/', json=data, headers=auth_headers)
     pid = create_resp.json['portfolio_id']
-    
+
     grant_data = {"username": "user2", "role": "Viewer"}
     response = client.post(f'/portfolios/{pid}/access', json=grant_data, headers=auth_headers)
     assert response.status_code == 200
@@ -114,7 +113,7 @@ def test_portfolio_access_revoke(client, auth_headers):
     pid = create_resp.json['portfolio_id']
     grant_data = {"username": "user2", "role": "Viewer"}
     client.post(f'/portfolios/{pid}/access', json=grant_data, headers=auth_headers)
-    
+
     response = client.delete(f'/portfolios/{pid}/access/user2', headers=auth_headers)
     assert response.status_code == 200
 

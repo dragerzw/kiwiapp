@@ -5,8 +5,8 @@ from flask_cors import CORS
 from pydantic import ValidationError
 from werkzeug.exceptions import HTTPException
 
-from app.db import db
 from app.cache import cache
+from app.db import db
 from app.routes import portfolio_bp, security_bp, trade_bp, user_bp
 from app.schemas.error_schemas import ErrorResponse
 
@@ -62,11 +62,11 @@ def _configure_cognito_validator(app):
     region = app.config.get('COGNITO_REGION')
     user_pool_id = app.config.get('COGNITO_USER_POOL_ID')
     app_client_id = app.config.get('COGNITO_APP_CLIENT_ID')
-    
+
     if not user_pool_id or not app_client_id:
         app.logger.warning("Cognito User Pool ID or App Client ID missing; skipping Cognito validator setup.")
         return
-        
+
     app.config['COGNITO_VALIDATOR'] = CognitoTokenValidator(region, user_pool_id, app_client_id)
 
 
@@ -120,9 +120,9 @@ def create_app(config):
         return jsonify(error_response.model_dump()), 404
 
     # Domain exception handlers
-    from app.service.user_service import UnsupportedUserOperationError
     from app.service.portfolio_service import UnsupportedPortfolioOperationError
-    from app.service.trade_service import TradeExecutionException, InsufficientFundsError
+    from app.service.trade_service import InsufficientFundsError, TradeExecutionException
+    from app.service.user_service import UnsupportedUserOperationError
 
     @app.errorhandler(UnsupportedUserOperationError)
     def handle_user_error(e):
