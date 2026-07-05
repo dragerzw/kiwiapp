@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .venv/
+.venv-1/
 .vscode/
 .coverage
 notes/
@@ -16,3 +17,5 @@ node_modules/
 dist/
 .DS_Store
 dev.db
+htmlcov/
+pytest-cache-files-*/

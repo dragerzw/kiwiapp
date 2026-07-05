@@ -75,6 +75,12 @@ export default function AdminDashboard({ token }) {
   };
 
   const confirmDeletePortfolio = async () => {
+    const holdingsCount = modalData?.investments_count || 0;
+    if (holdingsCount > 0) {
+      const noun = holdingsCount === 1 ? 'holding' : 'holdings';
+      setError(`Cannot delete: this portfolio still has ${holdingsCount} active ${noun}. All positions must be sold before it can be deleted.`);
+      return;
+    }
     try {
       const id = modalData.id;
       setProcessingId(id);
@@ -242,23 +248,43 @@ export default function AdminDashboard({ token }) {
       )}
 
       {/* Delete Portfolio Modal */}
-      {activeModal === 'deletePortfolio' && (
-        <BaseModal 
-          title="Delete Portfolio" 
-          onClose={closeModals}
-          footer={
-            <>
-              <button className="btn btn-outline" onClick={closeModals}>Cancel</button>
-              <button className="btn btn-danger" onClick={confirmDeletePortfolio} disabled={processingId}>
-                {processingId ? "Deleting..." : "Confirm Delete"}
-              </button>
-            </>
-          }
-        >
-          <p>Are you sure you want to delete portfolio <strong>{modalData.name}</strong> belonging to <strong>{modalData.owner}</strong>?</p>
-          {error && <div className="status-banner status-banner-error banner-margin-top">{error}</div>}
-        </BaseModal>
-      )}
+      {activeModal === 'deletePortfolio' && (() => {
+        const holdingsCount = modalData?.investments_count || 0;
+        const deleteBlocked = holdingsCount > 0;
+        const blockedMessage = holdingsCount === 1
+          ? `${modalData.name} still has 1 active holding. All positions must be sold before it can be deleted.`
+          : `${modalData.name} still has ${holdingsCount} active holdings. All positions must be sold before it can be deleted.`;
+        return (
+          <BaseModal
+            title="Delete Portfolio"
+            onClose={closeModals}
+            footer={
+              <>
+                <button className="btn btn-outline" onClick={closeModals} disabled={processingId}>
+                  {deleteBlocked ? 'Close' : 'Cancel'}
+                </button>
+                {!deleteBlocked && (
+                  <button className="btn btn-danger" onClick={confirmDeletePortfolio} disabled={processingId}>
+                    {processingId ? 'Deleting...' : 'Confirm Delete'}
+                  </button>
+                )}
+              </>
+            }
+          >
+            {deleteBlocked ? (
+              <>
+                <p>Portfolio <strong>{modalData.name}</strong> (owner: <strong>{modalData.owner}</strong>) cannot be deleted yet.</p>
+                <div className="status-banner status-banner-error banner-margin-top" role="alert">
+                  {blockedMessage}
+                </div>
+              </>
+            ) : (
+              <p>Are you sure you want to delete portfolio <strong>{modalData.name}</strong> belonging to <strong>{modalData.owner}</strong>? This action cannot be undone.</p>
+            )}
+            {error && !deleteBlocked && <div className="status-banner status-banner-error banner-margin-top">{error}</div>}
+          </BaseModal>
+        );
+      })()}
     </div>
   );
 }
