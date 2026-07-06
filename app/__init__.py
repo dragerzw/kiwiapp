@@ -71,9 +71,9 @@ def _configure_cognito_validator(app):
 
 
 def _configure_arcjet(app):
-    from arcjet import arcjet_sync, shield, detect_bot, fixed_window, Mode
-    from flask import request, jsonify
-    
+    from arcjet import Mode, arcjet_sync, detect_bot, fixed_window, shield
+    from flask import jsonify, request
+
     aj_key = os.environ.get("ARCJET_KEY")
     if not aj_key:
         app.logger.warning("ARCJET_KEY is not set. Arcjet protection is disabled.")
@@ -82,9 +82,9 @@ def _configure_arcjet(app):
     aj = arcjet_sync(
         key=aj_key,
         rules=[
-            shield(mode=Mode.LIVE), 
+            shield(mode=Mode.LIVE),
             detect_bot(
-                mode=Mode.LIVE, 
+                mode=Mode.LIVE,
                 allow=["CATEGORY:SEARCH_ENGINE", "CATEGORY:MONITOR"]
             ),
             fixed_window(
