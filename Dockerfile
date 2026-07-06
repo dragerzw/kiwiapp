@@ -1,30 +1,52 @@
 # ──────────────────────────────────────────────
-# KiwiApp Flask API — Production Image
+# KiwiApp Flask API — Multi-stage Production Image
 # ──────────────────────────────────────────────
-FROM python:3.14-slim AS base
 
-# Prevent Python from writing .pyc files and enable unbuffered stdout/stderr
+# -- Stage 1: Builder --
+FROM python:3.14-slim AS builder
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
 # Install OS-level dependencies required by cryptography / cffi
+# hadolint ignore=DL3008
 RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc libffi-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# ── Dependencies layer (cached unless requirements.txt changes) ──
+# Create a virtual environment and install dependencies
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
 COPY requirements.txt .
+# hadolint ignore=DL3013
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt gunicorn
 
-# ── Application code ──
-COPY app/ app/
-COPY run.py .
+# -- Stage 2: Production --
+FROM python:3.14-slim AS production
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
 
 # Non-root user for security
 RUN addgroup --system kiwi && adduser --system --ingroup kiwi kiwi
+
+# Copy the virtual environment from the builder stage
+COPY --from=builder /opt/venv /opt/venv
+
+# Ensure the virtual environment is in the PATH
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy application code
+COPY app/ app/
+COPY run.py .
+
+# Switch to non-root user
 USER kiwi
 
 EXPOSE 5000
