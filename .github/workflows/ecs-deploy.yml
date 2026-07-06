@@ -51,6 +51,7 @@ on:
       ALPHA_VANTAGE_API_KEY_VALUEFROM:  { required: true }
       COGNITO_USER_POOL_ID_VALUEFROM:   { required: true }
       COGNITO_APP_CLIENT_ID_VALUEFROM:  { required: true }
+      ARCJET_KEY_VALUEFROM:             { required: true }
       SERVICE_URL:
         required: false
 
@@ -109,6 +110,7 @@ jobs:
           ALPHA_VANTAGE_API_KEY_VALUEFROM:   ${{ secrets.ALPHA_VANTAGE_API_KEY_VALUEFROM }}
           COGNITO_USER_POOL_ID_VALUEFROM:    ${{ secrets.COGNITO_USER_POOL_ID_VALUEFROM }}
           COGNITO_APP_CLIENT_ID_VALUEFROM:   ${{ secrets.COGNITO_APP_CLIENT_ID_VALUEFROM }}
+          ARCJET_KEY_VALUEFROM:              ${{ secrets.ARCJET_KEY_VALUEFROM }}
         run: |
           set -euo pipefail
 
@@ -129,7 +131,8 @@ jobs:
 
           # All SSM valueFrom references must be populated
           for ref in DATABASE_URL_VALUEFROM ALPHA_VANTAGE_API_KEY_VALUEFROM \
-                     COGNITO_USER_POOL_ID_VALUEFROM COGNITO_APP_CLIENT_ID_VALUEFROM; do
+                     COGNITO_USER_POOL_ID_VALUEFROM COGNITO_APP_CLIENT_ID_VALUEFROM \
+                     ARCJET_KEY_VALUEFROM; do
             if [ -z "$(printenv "$ref")" ]; then
               echo "::error::Missing required secret reference: ${ref}"; exit 1
             fi
@@ -143,12 +146,14 @@ jobs:
           ALPHA_VANTAGE_API_KEY_VALUEFROM:  ${{ secrets.ALPHA_VANTAGE_API_KEY_VALUEFROM }}
           COGNITO_USER_POOL_ID_VALUEFROM:   ${{ secrets.COGNITO_USER_POOL_ID_VALUEFROM }}
           COGNITO_APP_CLIENT_ID_VALUEFROM:  ${{ secrets.COGNITO_APP_CLIENT_ID_VALUEFROM }}
+          ARCJET_KEY_VALUEFROM:             ${{ secrets.ARCJET_KEY_VALUEFROM }}
         run: |
           jq --arg container "$ECS_CONTAINER_NAME" \
              --arg db_url          "$DATABASE_URL_VALUEFROM" \
              --arg av_key          "$ALPHA_VANTAGE_API_KEY_VALUEFROM" \
              --arg cognito_pool_id "$COGNITO_USER_POOL_ID_VALUEFROM" \
-             --arg cognito_client  "$COGNITO_APP_CLIENT_ID_VALUEFROM" '
+             --arg cognito_client  "$COGNITO_APP_CLIENT_ID_VALUEFROM" \
+             --arg arcjet_key      "$ARCJET_KEY_VALUEFROM" '
             .containerDefinitions |= map(
               if .name == $container then
                 .secrets = (
@@ -157,7 +162,8 @@ jobs:
                       {name:"DATABASE_URL",           valueFrom:$db_url},
                       {name:"ALPHA_VANTAGE_API_KEY",  valueFrom:$av_key},
                       {name:"COGNITO_USER_POOL_ID",   valueFrom:$cognito_pool_id},
-                      {name:"COGNITO_APP_CLIENT_ID",  valueFrom:$cognito_client}
+                      {name:"COGNITO_APP_CLIENT_ID",  valueFrom:$cognito_client},
+                      {name:"ARCJET_KEY",             valueFrom:$arcjet_key}
                     ]
                   )[] as $s
                   ([]; [.[] | select(.name != $s.name)] + [$s])
