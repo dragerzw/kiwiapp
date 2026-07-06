@@ -70,6 +70,41 @@ def _configure_cognito_validator(app):
     app.config['COGNITO_VALIDATOR'] = CognitoTokenValidator(region, user_pool_id, app_client_id)
 
 
+def _configure_arcjet(app):
+    from arcjet import Mode, arcjet_sync, detect_bot, fixed_window, shield
+    from flask import jsonify, request
+
+    aj_key = os.environ.get("ARCJET_KEY")
+    if not aj_key:
+        app.logger.warning("ARCJET_KEY is not set. Arcjet protection is disabled.")
+        return
+
+    aj = arcjet_sync(
+        key=aj_key,
+        rules=[
+            shield(mode=Mode.LIVE),
+            detect_bot(
+                mode=Mode.LIVE,
+                allow=["CATEGORY:SEARCH_ENGINE", "CATEGORY:MONITOR"]
+            ),
+            fixed_window(
+                mode=Mode.LIVE,
+                max=100,
+                window=60,
+            ),
+        ],
+    )
+
+    @app.before_request
+    def arcjet_middleware():
+        decision = aj.protect(request)
+        if decision.is_denied():
+            from app.schemas.error_schemas import ErrorResponse
+            if decision.reason.is_rate_limit():
+                return jsonify(ErrorResponse(error="Too Many Requests", code=429).model_dump()), 429
+            return jsonify(ErrorResponse(error="Forbidden", code=403).model_dump()), 403
+
+
 def _register_error_handlers(app):
     @app.errorhandler(HTTPException)
     def handle_http_exception(e):
@@ -105,6 +140,7 @@ def create_app(config):
         _seed_default_dev_user(app)
 
     _configure_cognito_validator(app)
+    _configure_arcjet(app)
 
     # register blueprints
     app.register_blueprint(user_bp, url_prefix='/users')

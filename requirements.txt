@@ -33,3 +33,5 @@ requests==2.33.0
 PyJWT[crypto]==2.13.0
 cryptography==48.0.1
 flask-cors
+wasmtime>=43.0.0
+arcjet

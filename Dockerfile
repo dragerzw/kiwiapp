@@ -43,8 +43,11 @@ COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy application code
-COPY app/ app/
-COPY run.py .
+COPY --chown=kiwi:kiwi app/ app/
+COPY --chown=kiwi:kiwi run.py .
+
+# Ensure the /app directory itself is owned by the kiwi user so SQLAlchemy can create the instance/ folder
+RUN chown -R kiwi:kiwi /app
 
 # Switch to non-root user
 USER kiwi
