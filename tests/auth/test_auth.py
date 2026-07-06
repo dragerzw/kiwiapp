@@ -29,10 +29,14 @@ def test_invalid_bearer(client, app):
     assert b"Missing authentication Token" in response.data
 
 def test_valid_token_mocked(client, app, monkeypatch):
-    monkeypatch.setattr('app.auth.auth.jwt.get_unverified_header', lambda x: {"kid": "key1"})
-    monkeypatch.setattr('app.auth.auth.CognitoTokenValidator._get_jwks', lambda self: {"keys": [{"kid": "key1", "kty": "RSA", "alg": "RS256"}]})
+    from unittest.mock import MagicMock
 
-    def mock_decode(*args, **kwargs):
+    mock_key = MagicMock()
+    mock_key.key = {"kty": "RSA", "kid": "key1"}
+
+    monkeypatch.setattr('app.auth.auth.CognitoTokenValidator._get_signing_key', lambda self, token: mock_key)
+
+    def mock_decode(token, key, algorithms, **kwargs):
         return {
             "sub": "user123",
             "username": "testuser",
@@ -47,10 +51,14 @@ def test_valid_token_mocked(client, app, monkeypatch):
     assert response.json["username"] == "testuser"
 
 def test_valid_access_token_mocked(client, app, monkeypatch):
-    monkeypatch.setattr('app.auth.auth.jwt.get_unverified_header', lambda x: {"kid": "key1"})
-    monkeypatch.setattr('app.auth.auth.CognitoTokenValidator._get_jwks', lambda self: {"keys": [{"kid": "key1", "kty": "RSA", "alg": "RS256"}]})
+    from unittest.mock import MagicMock
 
-    def mock_decode(*args, **kwargs):
+    mock_key = MagicMock()
+    mock_key.key = {"kty": "RSA", "kid": "key1"}
+
+    monkeypatch.setattr('app.auth.auth.CognitoTokenValidator._get_signing_key', lambda self, token: mock_key)
+
+    def mock_decode(token, key, algorithms, **kwargs):
         return {
             "sub": "user123",
             "username": "testuser",
@@ -65,11 +73,15 @@ def test_valid_access_token_mocked(client, app, monkeypatch):
     assert response.json["username"] == "testuser"
 
 def test_expired_token(client, app, monkeypatch):
-    monkeypatch.setattr('app.auth.auth.jwt.get_unverified_header', lambda x: {"kid": "key1"})
-    monkeypatch.setattr('app.auth.auth.CognitoTokenValidator._get_jwks', lambda self: {"keys": [{"kid": "key1", "kty": "RSA", "alg": "RS256"}]})
+    from unittest.mock import MagicMock
 
-    from jose.exceptions import ExpiredSignatureError
-    def mock_decode_expired(*args, **kwargs):
+    mock_key = MagicMock()
+    mock_key.key = {"kty": "RSA", "kid": "key1"}
+
+    monkeypatch.setattr('app.auth.auth.CognitoTokenValidator._get_signing_key', lambda self, token: mock_key)
+
+    from jwt.exceptions import ExpiredSignatureError
+    def mock_decode_expired(token, key, algorithms, **kwargs):
         raise ExpiredSignatureError("Expired")
     monkeypatch.setattr('app.auth.auth.jwt.decode', mock_decode_expired)
 

@@ -1,11 +1,15 @@
 import secrets
 from functools import wraps
-from typing import Dict, Optional
+from typing import Dict
 
-import requests
+import jwt
 from flask import current_app, g, jsonify, request
-from jose import jwt
-from jose.exceptions import ExpiredSignatureError, JWTClaimsError, JWTError
+from jwt.exceptions import (
+    DecodeError,
+    ExpiredSignatureError,
+    InvalidTokenError,
+    PyJWKClientError,
+)
 from sqlalchemy.exc import IntegrityError
 
 
@@ -16,23 +20,13 @@ class CognitoTokenValidationError(Exception):
 def _safe_header_diagnostics(token: str) -> Dict:
     try:
         header = jwt.get_unverified_header(token)
-    except JWTError:
+    except DecodeError:
         header = {}
 
     return {
         'kid': header.get('kid'),
     }
 
-def _get_session() -> requests.Session:
-    """Create a requests session for JWKS fetching.
-    By default, requests will honor system/environment proxy settings. Proxy
-    handling is only disabled when the application explicitly enables the
-    DISABLE_OUTBOUND_PROXIES configuration flag.
-    """
-    session = requests.Session()
-    if current_app.config.get('DISABLE_OUTBOUND_PROXIES', False):
-        session.trust_env = False  # Disable proxy handling only when configured
-    return session
 
 class CognitoTokenValidator:
     def __init__(self, region: str, user_pool_id: str, app_client_id: str):
@@ -41,28 +35,12 @@ class CognitoTokenValidator:
         self.app_client_id = app_client_id
         self.issuer = f'https://cognito-idp.{region}.amazonaws.com/{user_pool_id}'
         self.jwks_url = f'{self.issuer}/.well-known/jwks.json'
-        self._jwks = None
+        self._jwk_client = jwt.PyJWKClient(self.jwks_url)
 
-    def _get_jwks(self) -> Dict:
-        if self._jwks is None:
-            session = _get_session()
-            response = session.get(self.jwks_url)
-            response.raise_for_status()
-            self._jwks = response.json()
-        return self._jwks
-
-    def _get_signing_key(self, token: str) -> Optional[Dict]:
+    def _get_signing_key(self, token: str):
         try:
-            header = jwt.get_unverified_header(token)
-            kid = header.get('kid')
-            if not kid:
-                return None
-            jwks = self._get_jwks()
-            for key in jwks.get('keys', []):
-                if key.get('kid') == kid:
-                    return key
-            return None
-        except JWTError:
+            return self._jwk_client.get_signing_key_from_jwt(token)
+        except (PyJWKClientError, DecodeError):
             return None
 
     def _has_expected_audience(self, audience_claim) -> bool:
@@ -72,12 +50,12 @@ class CognitoTokenValidator:
 
     def _validate_verified_claims(self, claims: Dict) -> Dict:
         if claims.get('iss') != self.issuer:
-            raise JWTClaimsError('Invalid issuer')
+            raise InvalidTokenError('Invalid issuer')
 
         token_use = claims.get('token_use')
-        if token_use == 'access':
+        if token_use == 'access':  # nosec B105
             if claims.get('client_id') != self.app_client_id:
-                raise JWTClaimsError('Invalid access token client_id')
+                raise InvalidTokenError('Invalid access token client_id')
             return claims
 
         if self._has_expected_audience(claims.get('aud')):
@@ -86,7 +64,7 @@ class CognitoTokenValidator:
         if claims.get('client_id') == self.app_client_id:
             return claims
 
-        raise JWTClaimsError('Invalid token audience/client_id')
+        raise InvalidTokenError('Invalid token audience/client_id')
 
     def validate_token(self, token: str) -> Dict:
         signing_key = self._get_signing_key(token)
@@ -95,23 +73,19 @@ class CognitoTokenValidator:
         try:
             claims = jwt.decode(
                 token,
-                signing_key,
+                signing_key.key,
                 algorithms=['RS256'],
                 issuer=self.issuer,
                 options={
-                    'verify_signature': True,
                     'verify_exp': True,
                     'verify_aud': False,
                     'verify_iss': True,
-                    'verify_at_hash': False,
                 },
             )
             return self._validate_verified_claims(claims)
         except ExpiredSignatureError:
             raise CognitoTokenValidationError('Token has expired')
-        except JWTClaimsError as e:
-            raise CognitoTokenValidationError(f'Invalid claims in token (check audience/issuer): {str(e)}')
-        except JWTError as e:
+        except InvalidTokenError as e:
             raise CognitoTokenValidationError(f'Token validation failed: {str(e)}')
 
 
